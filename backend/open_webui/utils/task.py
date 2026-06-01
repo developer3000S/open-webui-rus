@@ -1,7 +1,6 @@
 import logging
 import math
 import re
-import uuid
 from datetime import datetime
 from typing import Any, Optional
 
@@ -257,6 +256,14 @@ def replace_messages_variable(template: str, messages: Optional[list[dict]] = No
 # Let the context given here not distort the question,
 # but illuminate it, so that the answer serves the one who asked.
 async def rag_template(template: str, context: str, query: str):
+    """
+    Render the RAG template with the provided context.
+
+    `query` is kept for backward compatibility but no longer substituted:
+    the user's message is already in the messages array, and substituting it
+    here would mutate a system-pinned template every turn and defeat prefix
+    caching. {{QUERY}} / [query] placeholders are stripped to empty.
+    """
     if template.strip() == '':
         template = DEFAULT_RAG_TEMPLATE
 
@@ -272,25 +279,14 @@ async def rag_template(template: str, context: str, query: str):
             'nothing, or the user might be trying to hack something.'
         )
 
-    query_placeholders = []
-    if '[query]' in context:
-        query_placeholder = '{{QUERY' + str(uuid.uuid4()) + '}}'
-        template = template.replace('[query]', query_placeholder)
-        query_placeholders.append((query_placeholder, '[query]'))
-
-    if '{{QUERY}}' in context:
-        query_placeholder = '{{QUERY' + str(uuid.uuid4()) + '}}'
-        template = template.replace('{{QUERY}}', query_placeholder)
-        query_placeholders.append((query_placeholder, '{{QUERY}}'))
+    # Strip placeholders from the TEMPLATE first, then substitute context.
+    # Order matters: if context were substituted first, any literal [query]
+    # / {{QUERY}} inside a retrieved chunk would also get erased.
+    template = template.replace('[query]', '')
+    template = template.replace('{{QUERY}}', '')
 
     template = template.replace('[context]', context)
     template = template.replace('{{CONTEXT}}', context)
-
-    template = template.replace('[query]', query)
-    template = template.replace('{{QUERY}}', query)
-
-    for query_placeholder, original_placeholder in query_placeholders:
-        template = template.replace(query_placeholder, original_placeholder)
 
     return template
 

@@ -1049,6 +1049,14 @@ app.state.config.RAG_EXTERNAL_RERANKER_TIMEOUT = RAG_EXTERNAL_RERANKER_TIMEOUT
 app.state.config.RAG_RERANKING_BATCH_SIZE = RAG_RERANKING_BATCH_SIZE
 
 app.state.config.RAG_TEMPLATE = RAG_TEMPLATE
+if app.state.config.RAG_TEMPLATE and (
+    '{{QUERY}}' in app.state.config.RAG_TEMPLATE or '[query]' in app.state.config.RAG_TEMPLATE
+):
+    log.warning(
+        "RAG_TEMPLATE contains {{QUERY}}/[query] placeholders, which are no "
+        "longer substituted (the user's message is already in the messages "
+        'array) and will be stripped to empty. Remove them from your template.'
+    )
 
 app.state.config.RAG_OPENAI_API_BASE_URL = RAG_OPENAI_API_BASE_URL
 app.state.config.RAG_OPENAI_API_KEY = RAG_OPENAI_API_KEY
