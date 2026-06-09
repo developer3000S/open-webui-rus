@@ -95,10 +95,17 @@
 					);
 
 					if (!nodeGroups.has(entryKey)) {
+						// Keys that map to payload.prompt in _apply_workflow_nodes are ambiguous
+						// when multiple nodes share the same key (e.g. positive vs negative
+						// CLIPTextEncode both have key 'text'). Leave node_ids empty for
+						// these so the admin explicitly picks which nodes receive the prompt.
+						const ambiguousKeys = new Set(['text', 'prompt', 'positive']);
+						const autoAssign = !ambiguousKeys.has(inputKey);
+
 						nodeGroups.set(entryKey, {
 							type: semanticType,
 							key: inputKey,
-							node_ids: [nodeId],
+							node_ids: autoAssign ? [nodeId] : [],
 							class_type: node.class_type
 						});
 					}
@@ -136,7 +143,6 @@
 		return true;
 	}
 
-
 	/**
 	 * Reads config.COMFYUI_WORKFLOW, validates it, and triggers node auto-detection.
 	 * @param showToast   - Surface toasts to the user.
@@ -171,7 +177,7 @@
 				return;
 			}
 
-			const reconcileWith = isNewImport ? [] : config.COMFYUI_WORKFLOW_NODES ?? [];
+			const reconcileWith = isNewImport ? [] : (config.COMFYUI_WORKFLOW_NODES ?? []);
 			const ok = parseAndPopulateWorkflowNodes(parsed, reconcileWith, showToast);
 			if (ok) lastKnownWorkflowString = wfString;
 		} catch {
@@ -222,7 +228,7 @@
 				return;
 			}
 
-			const reconcileWith = isNewImport ? [] : config.IMAGES_EDIT_COMFYUI_WORKFLOW_NODES ?? [];
+			const reconcileWith = isNewImport ? [] : (config.IMAGES_EDIT_COMFYUI_WORKFLOW_NODES ?? []);
 			// Re-use the same parsing function, writing to editWorkflowNodesConfig
 			const savedNodes = reconcileWith;
 			if (!parsed || typeof parsed !== 'object') {
@@ -247,10 +253,14 @@
 					const semanticType = `${node.class_type}::${inputKey}`;
 
 					if (!nodeGroups.has(entryKey)) {
+						// Same ambiguous-key logic as parseAndPopulateWorkflowNodes
+						const ambiguousKeys = new Set(['text', 'prompt', 'positive']);
+						const autoAssign = !ambiguousKeys.has(inputKey);
+
 						nodeGroups.set(entryKey, {
 							type: semanticType,
 							key: inputKey,
-							node_ids: [nodeId],
+							node_ids: autoAssign ? [nodeId] : [],
 							class_type: node.class_type
 						});
 					}
@@ -361,8 +371,7 @@
 			config.COMFYUI_WORKFLOW_NODES = workflowNodesConfig.map((node) => ({
 				type: node.type,
 				key: node.key,
-				node_ids:
-					node.node_ids.trim() === '' ? [] : node.node_ids.split(',').map((id) => id.trim())
+				node_ids: node.node_ids.trim() === '' ? [] : node.node_ids.split(',').map((id) => id.trim())
 			}));
 		}
 
@@ -375,8 +384,7 @@
 			config.IMAGES_EDIT_COMFYUI_WORKFLOW_NODES = editWorkflowNodesConfig.map((node) => ({
 				type: node.type,
 				key: node.key,
-				node_ids:
-					node.node_ids.trim() === '' ? [] : node.node_ids.split(',').map((id) => id.trim())
+				node_ids: node.node_ids.trim() === '' ? [] : node.node_ids.split(',').map((id) => id.trim())
 			}));
 		}
 
@@ -939,8 +947,17 @@
 									</div>
 									{#if workflowNodesConfig.length > 0}
 										<div class="text-xs text-green-500 dark:text-green-400 flex items-center gap-1">
-											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-3 h-3">
-												<path fill-rule="evenodd" d="M12.416 3.376a.75.75 0 0 1 .208 1.04l-5 7.5a.75.75 0 0 1-1.154.114l-3-3a.75.75 0 0 1 1.06-1.06l2.353 2.353 4.493-6.74a.75.75 0 0 1 1.04-.207Z" clip-rule="evenodd" />
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												viewBox="0 0 16 16"
+												fill="currentColor"
+												class="w-3 h-3"
+											>
+												<path
+													fill-rule="evenodd"
+													d="M12.416 3.376a.75.75 0 0 1 .208 1.04l-5 7.5a.75.75 0 0 1-1.154.114l-3-3a.75.75 0 0 1 1.06-1.06l2.353 2.353 4.493-6.74a.75.75 0 0 1 1.04-.207Z"
+													clip-rule="evenodd"
+												/>
 											</svg>
 											{$i18n.t('Auto-detected')}
 										</div>
@@ -952,12 +969,28 @@
 										{#each workflowNodesConfig as node}
 											<div class="flex w-full flex-col">
 												<div class="shrink-0">
-													<div class="line-clamp-1 text-gray-400 dark:text-gray-500" title={node.type}>
-														<span class="font-medium">{node.class_type}</span><span class="opacity-60">::{node.key}</span>
+													<div
+														class="capitalize line-clamp-1 w-20 text-gray-400 dark:text-gray-500"
+														title={node.type}
+													>
+														{node.class_type}
 													</div>
 												</div>
 
 												<div class="flex mt-0.5 items-center">
+													<div class="">
+														<Tooltip content={$i18n.t('Input Key (e.g. text, unet_name, steps)')}>
+															<input
+																class="py-1 w-24 text-xs bg-transparent outline-hidden"
+																placeholder={$i18n.t('Key')}
+																bind:value={node.key}
+																required
+															/>
+														</Tooltip>
+													</div>
+
+													<div class="px-2 text-gray-400 dark:text-gray-500">:</div>
+
 													<div class="w-full">
 														<Tooltip
 															content={$i18n.t('Comma separated Node Ids (e.g. 1 or 1,2)')}
@@ -981,9 +1014,7 @@
 								{/if}
 
 								<div class="mt-1 text-xs text-gray-400 dark:text-gray-500">
-									{$i18n.t(
-										'Node IDs are auto-detected from your workflow. Adjust them if needed.'
-									)}
+									{$i18n.t('Node IDs are auto-detected from your workflow. Adjust them if needed.')}
 								</div>
 							</div>
 						{/if}
@@ -1350,8 +1381,17 @@
 									</div>
 									{#if editWorkflowNodesConfig.length > 0}
 										<div class="text-xs text-green-500 dark:text-green-400 flex items-center gap-1">
-											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-3 h-3">
-												<path fill-rule="evenodd" d="M12.416 3.376a.75.75 0 0 1 .208 1.04l-5 7.5a.75.75 0 0 1-1.154.114l-3-3a.75.75 0 0 1 1.06-1.06l2.353 2.353 4.493-6.74a.75.75 0 0 1 1.04-.207Z" clip-rule="evenodd" />
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												viewBox="0 0 16 16"
+												fill="currentColor"
+												class="w-3 h-3"
+											>
+												<path
+													fill-rule="evenodd"
+													d="M12.416 3.376a.75.75 0 0 1 .208 1.04l-5 7.5a.75.75 0 0 1-1.154.114l-3-3a.75.75 0 0 1 1.06-1.06l2.353 2.353 4.493-6.74a.75.75 0 0 1 1.04-.207Z"
+													clip-rule="evenodd"
+												/>
 											</svg>
 											{$i18n.t('Auto-detected')}
 										</div>
@@ -1363,12 +1403,28 @@
 										{#each editWorkflowNodesConfig as node}
 											<div class="flex w-full flex-col">
 												<div class="shrink-0">
-													<div class="line-clamp-1 text-gray-400 dark:text-gray-500" title={node.type}>
-														<span class="font-medium">{node.class_type}</span><span class="opacity-60">::{node.key}</span>
+													<div
+														class="capitalize line-clamp-1 w-20 text-gray-400 dark:text-gray-500"
+														title={node.type}
+													>
+														{node.class_type}
 													</div>
 												</div>
 
 												<div class="flex mt-0.5 items-center">
+													<div class="">
+														<Tooltip content={$i18n.t('Input Key (e.g. text, unet_name, steps)')}>
+															<input
+																class="py-1 w-24 text-xs bg-transparent outline-hidden"
+																placeholder={$i18n.t('Key')}
+																bind:value={node.key}
+																required
+															/>
+														</Tooltip>
+													</div>
+
+													<div class="px-2 text-gray-400 dark:text-gray-500">:</div>
+
 													<div class="w-full">
 														<Tooltip
 															content={$i18n.t('Comma separated Node Ids (e.g. 1 or 1,2)')}
@@ -1392,9 +1448,7 @@
 								{/if}
 
 								<div class="mt-1 text-xs text-gray-400 dark:text-gray-500">
-									{$i18n.t(
-										'Node IDs are auto-detected from your workflow. Adjust them if needed.'
-									)}
+									{$i18n.t('Node IDs are auto-detected from your workflow. Adjust them if needed.')}
 								</div>
 							</div>
 						{/if}
