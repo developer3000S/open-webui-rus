@@ -2386,9 +2386,7 @@ async def search_web(request: Request, engine: str, query: str, user=None) -> li
             query,
             config.WEB_SEARCH_RESULT_COUNT,
             config.WEB_SEARCH_DOMAIN_FILTER_LIST,
-            # fastCRW differentiator: route the query to curated source groups
-            # (e.g. research/github/pdf). fastCRW reranks results server-side.
-            config.CRW_SEARCH_CATEGORIES,
+            config.CRW_SEARCH_CATEGORIES,  # route to arxiv/github/pdf groups
         )
     elif engine == 'external':
         return await asyncio.to_thread(

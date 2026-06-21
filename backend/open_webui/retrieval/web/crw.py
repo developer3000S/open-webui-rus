@@ -12,20 +12,9 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-# fastCRW is a Firecrawl-compatible web scraper shipped as a single Rust binary;
-# self-host (AGPL open core) or use the managed cloud at https://fastcrw.com.
-#
-# This provider is NOT a thin Firecrawl clone: it exposes fastCRW's SUPERSET
-# capabilities that the generic Firecrawl code path cannot reach. Specifically,
-# `POST {base}/v1/search` accepts a fastCRW-specific `categories` (and/or
-# `sources`) field that routes the query to curated source groups — e.g.
-# "research" (expands to arxiv/crossref/scholar), "github", "pdf"
-# (-> filetype:pdf), plus any SearXNG category passed straight through.
-# fastCRW additionally reranks the returned results server-side for the LLM
-# retrieval path, so callers get higher-recall, better-ordered results without
-# any client-side reranking. None of this is expressible through the Firecrawl
-# provider, which is why fastCRW is a distinct engine rather than just a
-# different FIRECRAWL_API_BASE_URL.
+# fastCRW: Firecrawl-compatible scraper that also accepts `categories`/`sources`
+# on /v1/search (route to arxiv/github/pdf groups) and reranks server-side —
+# capabilities the Firecrawl provider can't express, hence a distinct engine.
 DEFAULT_CRW_API_BASE_URL = 'https://fastcrw.com/api'
 CRW_RETRY_STATUS_CODES = {429, 500, 502, 503, 504}
 CRW_MAX_RETRIES = 2
@@ -43,16 +32,14 @@ def build_crw_url(base_url: str | None, path: str) -> str:
 
 def build_crw_headers(api_key: str | None) -> dict[str, str]:
     headers = {'Content-Type': 'application/json'}
-    # Self-hosted fastCRW runs keyless by default; only send auth when a key is
-    # set so we never emit an empty `Authorization: Bearer ` header.
+    # Keyless by default; only send auth when a key is set.
     if api_key:
         headers['Authorization'] = f'Bearer {api_key}'
     return headers
 
 
 def parse_crw_categories(categories: Any) -> list[str]:
-    # Accept either a comma-separated string (from the admin UI / env var) or an
-    # already-parsed list, and normalise to a clean list of category names.
+    # Accept a comma-separated string or a list; normalise to clean names.
     if not categories:
         return []
 
@@ -192,8 +179,7 @@ def scrape_crw_url(
         timeout=get_crw_client_timeout_seconds(timeout),
         verify=verify_ssl,
     )
-    # fastCRW's scrape route is Firecrawl-shaped:
-    # {success, data: {markdown, metadata: {...}}}.
+    # Firecrawl-shaped: {success, data: {markdown, metadata}}.
     data = response.get('data') or {}
     content = data.get('markdown') or ''
     if not isinstance(content, str) or not content.strip():
@@ -219,12 +205,8 @@ def search_crw(
     sources: Any = None,
 ) -> list[SearchResult]:
     try:
-        # The `categories`/`sources` fields are fastCRW's differentiator over a
-        # plain Firecrawl endpoint: they route the query to curated source
-        # groups (e.g. "research" -> arxiv/crossref/scholar, "github", "pdf"),
-        # and fastCRW reranks the returned results server-side for the LLM
-        # retrieval path. Both are omitted from the body when not configured so
-        # the request stays Firecrawl-compatible by default.
+        # categories/sources route the query (arxiv/github/pdf); omitted when
+        # unset so the request stays Firecrawl-compatible by default.
         payload: dict[str, Any] = {
             'query': query,
             'limit': count,
@@ -245,9 +227,7 @@ def search_crw(
             json=payload,
             timeout=count * 3 + 10,
         )
-        # fastCRW's Firecrawl-compatible /search returns a flat
-        # `{"data": [{title, url, description}]}` list (already reranked
-        # server-side); accept the v2-style `{"data": {"web": [...]}}` too.
+        # /search returns {"data": [...]} (already reranked); also accept v2 {"data": {"web": [...]}}.
         data = response.get('data') or {}
         results = data if isinstance(data, list) else (data.get('web') or [])
 
