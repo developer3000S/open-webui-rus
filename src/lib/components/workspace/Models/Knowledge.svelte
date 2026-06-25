@@ -20,7 +20,7 @@
 	let filesInputElement = null;
 	let inputFiles = null;
 
-	$: if (selectedItems === null) {
+	$: if (selectedItems === null || selectedItems === undefined) {
 		selectedItems = [];
 	}
 
@@ -195,10 +195,11 @@
 					<KnowledgeSelector
 						on:select={(e) => {
 							const item = e.detail;
+							const current = selectedItems ?? [];
 
-							if (!selectedItems.find((k) => k.id === item.id)) {
+							if (!current.find((k) => k.id === item.id)) {
 								selectedItems = [
-									...selectedItems,
+									...current,
 									{
 										...item
 									}
