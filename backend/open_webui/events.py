@@ -472,6 +472,16 @@ class EventDefinitions(BaseModel):
     FUNCTION_DISABLED: EventDefinition = EventDefinition(
         name='function.disabled', description='A function was disabled.', message='Function disabled'
     )
+    FUNCTION_DISABLING: EventDefinition = EventDefinition(
+        name='function.disabling',
+        description='A function is about to be disabled. Dispatched synchronously before the state change.',
+        message='Function disabling',
+    )
+    FUNCTION_ENABLING: EventDefinition = EventDefinition(
+        name='function.enabling',
+        description='A function is about to be enabled. Dispatched synchronously before the state change.',
+        message='Function enabling',
+    )
     FUNCTION_VALVES_UPDATED: EventDefinition = EventDefinition(
         name='function.valves_updated', description='Function valves were updated.', message='Function valves updated'
     )
@@ -1024,7 +1034,32 @@ class WebhookEventSink:
         schedule_webhook_dispatch(app, event)
 
 
-async def dispatch_event_functions(app: Any, event: Event, request: Any | None = None) -> None:
+async def _resolve_extra_event_functions(
+    extra_function_ids: list[str], existing: list,
+) -> list:
+    """Load event functions by ID that aren't already in *existing*.
+
+    Used by ``dispatch_event_functions`` to include functions that are
+    not yet active (e.g. a function about to be enabled).
+    """
+    from open_webui.models.functions import Functions
+
+    seen_ids = {f.id for f in existing}
+    result = list(existing)
+    for fid in extra_function_ids:
+        if fid not in seen_ids:
+            try:
+                extra = await Functions.get_function_by_id(fid)
+                if extra and extra.type == 'event':
+                    result.append(extra)
+            except Exception:
+                log.exception('Extra event function %s could not be loaded', fid)
+    return result
+
+
+async def dispatch_event_functions(
+    app: Any, event: Event, request: Any | None = None, extra_function_ids: list[str] | None = None
+) -> None:
     from open_webui.models.functions import Functions
     from open_webui.utils.plugin import get_function_module_from_cache
 
@@ -1036,6 +1071,9 @@ async def dispatch_event_functions(app: Any, event: Event, request: Any | None =
     except Exception:
         log.exception('Event functions could not be loaded for %s', event.event)
         return
+
+    if extra_function_ids:
+        event_functions = await _resolve_extra_event_functions(extra_function_ids, event_functions)
 
     for function in event_functions:
         try:
