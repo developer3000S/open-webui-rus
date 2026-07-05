@@ -266,7 +266,7 @@ jobs:
           echo "tag=${image_tag}" >> "${GITHUB_OUTPUT}"
 
       - name: Dispatch Helm chart automation
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ steps.helm-app-token.outputs.token }}
           script: |
