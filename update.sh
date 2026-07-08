@@ -20,13 +20,14 @@ git add .
 
 # 2. Creating commit
 echo "[2/3] Creating commit: '$COMMIT_MSG'..."
-git commit -m "$COMMIT_MSG"
+git commit -m "$COMMIT_MSG" || echo "No changes to commit."
 
-# 3. Pushing to main branch
-echo "[3/3] Pushing data to GitHub (branch main)..."
+# 3. Pushing to current branch
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+echo "[3/3] Pushing data to GitHub (branch $CURRENT_BRANCH)..."
 # Добавляем флаг --no-thin и предварительную очистку для стабильности на внешних дисках
 git gc --auto > /dev/null 2>&1
-git push origin main --no-thin
+git push origin "$CURRENT_BRANCH" --no-thin
 
 if [ $? -eq 0 ]; then
     echo "--- Success: Repository updated! ---"
