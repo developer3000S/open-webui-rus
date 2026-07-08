@@ -10,201 +10,220 @@
 [![Discord](https://img.shields.io/badge/Discord-Open_WebUI-blue?logo=discord&logoColor=white)](https://discord.gg/5rJgQTnV4s)
 [![](https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&color=%23fe8e86)](https://github.com/sponsors/open-webui)
 
-![Open WebUI Banner](./banner.png)
+![Окно Open WebUI](./banner.png)
 
-**Open WebUI is an [extensible](https://docs.openwebui.com/features/extensibility/plugin), feature-rich, and user-friendly self-hosted AI platform designed to operate entirely offline.** It supports various LLM runners like **Ollama** and **OpenAI-compatible APIs**, with **built-in inference engine** for RAG, making it a **powerful AI deployment solution**.
+**Open WebUI — это расширяемая** ([extensible](https://docs.openwebui.com/features/extensibility/plugin)), насыщенная возможностями и удобная платформа для self-hosted ИИ, предназначенная для работы полностью офлайн.** Она поддерживает различные LLM-раннеры, такие как **Ollama** и **OpenAI-совместимые API**, а также **встроенный inference-engine** для RAG, благодаря чему Open WebUI становится **мощным решением для развёртывания ИИ**.
 
-Passionate about open-source AI? [Join our team →](https://careers.openwebui.com/)
+Увлекаетесь open-source ИИ? [Присоединяйтесь к нашей команде →](https://careers.openwebui.com/)
 
-![Open WebUI Demo](./demo.png)
+
+![Демо Open WebUI](./demo.png)
 
 > [!TIP]  
-> **Looking for an [Enterprise Plan](https://docs.openwebui.com/enterprise)?** – **[Speak with Our Sales Team Today!](https://docs.openwebui.com/enterprise)**
+> **Ищете [Enterprise-план](https://docs.openwebui.com/enterprise)?** – **[Свяжитесь с нашей командой продаж прямо сегодня!](https://docs.openwebui.com/enterprise)**
 >
-> Get **enhanced capabilities**, including **custom theming and branding**, **Service Level Agreement (SLA) support**, **Long-Term Support (LTS) versions**, and **more!**
+> Получите **расширенные возможности**, включая **кастомизацию тем и брендинга**, **поддержку Service Level Agreement (SLA)**, **версии Long-Term Support (LTS)** и **ещё больше!**
 
-For more information, be sure to check out our [Open WebUI Documentation](https://docs.openwebui.com/).
 
-## Key Features of Open WebUI ⭐
+Для получения дополнительной информации обязательно ознакомьтесь с нашей [документацией Open WebUI](https://docs.openwebui.com/).
 
-- 🚀 **Effortless Setup**: Install seamlessly via pip, uv, Docker, or Kubernetes (kubectl, kustomize, or helm), with `:ollama` and `:cuda` tagged images available for container deployments.
+## Ключевые возможности Open WebUI ⭐
 
-- 🤝 **Broad Model & API Integration**: Connect any OpenAI-compatible API alongside local Ollama models. Point the API URL at **LMStudio, GroqCloud, Mistral, OpenRouter, vLLM, and more** to mix and match providers freely.
 
-- 🔐 **Granular RBAC & User Groups**: Administrators define detailed roles, groups, and permissions, giving each user exactly the access they need. Secure by default, with tailored experiences per group.
+- 🚀 **Простая настройка**: Устанавливайте без труда через pip, uv, Docker или Kubernetes (kubectl, kustomize или helm). Для контейнерных развертываний доступны образы с тегами `:ollama` и `:cuda`.
 
-- 🧩 **Plugin Support**: Extend Open WebUI with **Filters**, **Actions**, **Pipes**, **Tools**, and **Skills**. Connect external services through **MCP**, **MCPO**, and **OpenAPI tool servers**. Build custom integrations, rate limits, approval flows, data connections, and more.
+- 🤝 **Широкая интеграция моделей и API**: Подключайте любой OpenAI-совместимый API вместе с локальными моделями Ollama. Укажите URL API на **LMStudio, GroqCloud, Mistral, OpenRouter, vLLM и другие**, чтобы свободно комбинировать провайдеров.
 
-- 🤖 **Models & Agents**: Wrap any base model with custom instructions, tools, and knowledge to build specialized agents. Supports dynamic variables, per-user/group access control, and community preset imports via [Open WebUI Community](https://openwebui.com/).
+- 🔐 **Тонкая RBAC и группы пользователей**: Администраторы задают роли, группы и права максимально детально, чтобы каждому пользователю был доступ ровно к тому, что нужно. По умолчанию — безопасно, а опыт настраивается под каждую группу.
 
-- 📝 **Notes**: A dedicated workspace for content outside conversations. Draft with a rich editor, use AI to rewrite selected text, and attach notes to any chat for full-context injection.
+- 🧩 **Поддержка плагинов**: Расширяйте Open WebUI с помощью **фильтров**, **действий**, **pipe**, **tools** и **skills**. Подключайте внешние сервисы через **MCP**, **MCPO** и **OpenAPI tool servers**. Стройте собственные интеграции, лимиты запросов, сценарии согласования, подключения данных и многое другое.
 
-- 📢 **Channels**: Real-time shared spaces where your team and AI models collaborate in one timeline. Tag models to draft or critique, with threads, reactions, pins, and access control.
+- 🤖 **Модели и агенты**: Оборачивайте любую базовую модель в пользовательские инструкции, tools и знания, чтобы создавать специализированных агентов. Поддерживаются динамические переменные, контроль доступа по пользователям/группам и импорт готовых пресетов через [Open WebUI Community](https://openwebui.com/).
 
-- 🧠 **Persistent Memory**: The AI remembers facts about you across conversations, carrying context from one chat to the next.
+- 📝 **Заметки**: Отдельное рабочее пространство для контента вне диалогов. Создавайте черновики в расширенном редакторе, используйте ИИ для перезаписи выбранного текста и прикрепляйте заметки к любому чату для полного контекстного внедрения.
 
-- ✅ **Live Workflow & Message Flow**: Watch the AI build and work through checklists in real time. Queue messages while the AI is still responding; they send automatically when it's ready.
+- 📢 **Каналы**: Общие пространства в реальном времени, где ваша команда и ИИ-модели работают в одной временной шкале. Помечайте модели, чтобы они готовили или критиковали ответы, с ветками (threads), реакциями, закреплениями и контролем доступа.
 
-- 📅 **Calendar & AI Scheduling**: Built-in personal and shared calendars with month/week/day views, recurring events, color coding, attendees, and reminders. Models manage your schedule conversationally through native function calling.
+- 🧠 **Устойчивая память**: ИИ запоминает факты о вас на протяжении диалогов, перенося контекст из одного чата в следующий.
 
-- ⏱️ **Automations**: Schedule prompts to run on recurring schedules, with runs surfaced on your calendar and each completed run linking back to the chat it produced.
+- ✅ **Живой рабочий процесс и поток сообщений**: Наблюдайте, как ИИ строит ответ и проходит чек-листы в реальном времени. Ставьте сообщения в очередь, пока ИИ ещё отвечает — они отправятся автоматически, когда всё будет готово.
 
-- 📱 **Responsive Design & PWA**: Seamless experience across desktop, laptop, and mobile, with a Progressive Web App for native app-like feel and offline access on localhost.
+- 📅 **Календарь и планирование с ИИ**: Встроенные личные и общие календари с представлениями месяц/неделя/день, повторяющимися событиями, цветовой маркировкой, участниками и напоминаниями. Модели управляют вашим расписанием в диалоге через нативное function calling.
 
-- ✒️🔢 **Full Markdown and LaTeX Support**: Comprehensive Markdown and LaTeX capabilities for enriched interaction.
+- ⏱️ **Автоматизации**: Планируйте подсказки (prompts) для выполнения по повторяющимся расписаниям. Запуски отображаются в календаре, а каждый завершённый запуск связывается обратно с чатом, который его сформировал.
 
-- 🎤📹 **Hands-Free Voice/Video Call**: Integrated voice and video calls with multiple Speech-to-Text providers (Local Whisper, OpenAI, Deepgram, Azure) and Text-to-Speech engines (Azure, ElevenLabs, OpenAI, Transformers, WebAPI).
+- 📱 **Адаптивный дизайн и PWA**: Единый комфортный опыт на desktop, ноутбуках и мобильных устройствах. Progressive Web App даёт ощущение нативного приложения и доступ в офлайн на localhost.
 
-- 💾 **Persistent Artifact Storage**: Built-in key-value storage API for artifacts, enabling journals, trackers, leaderboards, and collaborative tools with personal and shared data scopes.
+- ✒️🔢 **Полная поддержка Markdown и LaTeX**: Развитые возможности Markdown и LaTeX для более выразительного взаимодействия.
 
-- 📚 **Local RAG Integration**: Retrieval Augmented Generation backed by 9 vector databases and multiple content-extraction engines (Tika, Docling, Document Intelligence, Mistral OCR, PaddleOCR-vl, external loaders). Supports hybrid search (BM25 + vector) with reranking and full-context mode. Load documents into chat or pull them from your library with the `#` command.
+- 🎤📹 **Голос/видеозвонок без рук**: Встроенные звонки с голосом и видео с несколькими провайдерами Speech-to-Text (Local Whisper, OpenAI, Deepgram, Azure) и движками Text-to-Speech (Azure, ElevenLabs, OpenAI, Transformers, WebAPI).
 
-- 🔍 **Web Search for RAG**: Search the web through dozens of providers including `SearXNG`, `Google PSE`, `Brave Search`, `Kagi`, `Mojeek`, `Tavily`, `Perplexity`, `Firecrawl`, `serpstack`, `serper`, `Serply`, `DuckDuckGo`, `SearchApi`, `SerpApi`, `Bing`, `Jina`, `Exa`, `Sougou`, `Azure AI Search`, and `Ollama Cloud`, injecting results directly into the conversation.
+- 💾 **Постоянное хранилище артефактов**: Встроенный API хранилища key-value для артефактов — журналы, трекеры, таблицы лидеров и совместные инструменты с личными и общими областями данных.
 
-- 🌐 **Web Browsing Capability**: Pull websites into chat with the `#` command followed by a URL, or let the model fetch them on its own when needed.
+- 📚 **Локальная интеграция RAG**: Retrieval Augmented Generation на базе 9 векторных баз данных и нескольких движков извлечения контента (Tika, Docling, Document Intelligence, Mistral OCR, PaddleOCR-vl, внешние загрузчики). Поддерживается гибридный поиск (BM25 + вектор) с reranking и режимом полного контекста. Загружайте документы в чат или забирайте их из вашей библиотеки командой `#`.
 
-- 🎨 **Image Generation & Editing**: Create and edit images with multiple engines including OpenAI DALL·E, Gemini, ComfyUI (local), and AUTOMATIC1111 (local), supporting both generation and prompt-based editing.
+- 🔍 **Веб-поиск для RAG**: Ищите в интернете через десятки провайдеров, включая `SearXNG`, `Google PSE`, `Brave Search`, `Kagi`, `Mojeek`, `Tavily`, `Perplexity`, `Firecrawl`, `serpstack`, `serper`, `Serply`, `DuckDuckGo`, `SearchApi`, `SerpApi`, `Bing`, `Jina`, `Exa`, `Sougou`, `Azure AI Search` и `Ollama Cloud`. Результаты сразу внедряются в диалог.
 
-- ⚙️ **Multi-Model Conversations**: Engage several models at once, harnessing their individual strengths in parallel for the best possible responses.
+- 🌐 **Возможность веб-просмотра**: Подключайте сайты в чат командой `#` с URL, либо позволяйте модели забирать их самостоятельно, когда это нужно.
 
-- 📊 **Usage Analytics & Model Evaluation**: Admin dashboards track message volume, token consumption, and cost across users and models. Evaluate models with a built-in arena, A/B testing, and ELO-based leaderboards.
+- 🎨 **Генерация и редактирование изображений**: Создавайте и редактируйте изображения с несколькими движками, включая OpenAI DALL·E, Gemini, ComfyUI (локально) и AUTOMATIC1111 (локально). Поддерживаются и генерация, и редактирование на основе промптов.
 
-- 🗄️ **Flexible Database & Storage**: Choose SQLite (with optional encryption) or PostgreSQL, and store files locally or on S3, Google Cloud Storage, or Azure Blob Storage.
+- ⚙️ **Диалоги с несколькими моделями**: Общайтесь сразу с несколькими моделями, параллельно используя их сильные стороны для наиболее качественных ответов.
 
-- 🧬 **Advanced Vector Database Support**: Pick from 9 vector databases: ChromaDB, PGVector, Qdrant, Milvus, Elasticsearch, OpenSearch, Pinecone, S3Vector, and Oracle 23ai.
+- 📊 **Аналитика использования и оценка моделей**: Админ-панели отслеживают объём сообщений, потребление токенов и стоимость по пользователям и моделям. Оценивайте модели во встроенной арене, используя A/B тестирование и лидерборды на базе ELO.
 
-- 🪪 **Enterprise Authentication & Provisioning**: Full LDAP/Active Directory integration, SSO via trusted headers and OAuth providers, and SCIM 2.0 automated provisioning for identity providers like Okta, Azure AD, and Google Workspace.
+- 🗄️ **Гибкие база данных и хранилище**: Выбирайте SQLite (с опциональным шифрованием) или PostgreSQL и храните файлы локально либо в S3, Google Cloud Storage или Azure Blob Storage.
 
-- ☁️ **Cloud-Native File Integration**: Native Google Drive and OneDrive/SharePoint file picking for seamless document import from enterprise cloud storage.
+- 🧬 **Расширенная поддержка векторных баз данных**: Выбирайте из 9 векторных баз данных: ChromaDB, PGVector, Qdrant, Milvus, Elasticsearch, OpenSearch, Pinecone, S3Vector и Oracle 23ai.
 
-- 🔭 **Production Observability**: Built-in OpenTelemetry support for traces, metrics, and logs, plugging into your existing monitoring stack.
+- 🪪 **Корпоративная аутентификация и развёртывание**: Полная интеграция LDAP/Active Directory, SSO через trusted headers и OAuth-провайдеров, а также автоматизированное SCIM 2.0-подготовление для провайдеров идентификации вроде Okta, Azure AD и Google Workspace.
 
-- ⚖️ **Horizontal Scalability**: Redis-backed session management and WebSocket support for multi-worker, multi-node deployments behind load balancers.
+- ☁️ **Интеграция файлов в облаке**: Нативный выбор файлов из Google Drive и OneDrive/SharePoint, чтобы импорт документов из корпоративного облачного хранилища был бесшовным.
 
-- 🌐🌍 **Multilingual Support**: Use Open WebUI in your preferred language with i18n support. We're actively seeking contributors to expand language coverage!
+- 🔭 **Наблюдаемость в продакшене**: Встроенная поддержка OpenTelemetry для трассировок, метрик и логов — подключается к вашей текущей системе мониторинга.
 
-- 🌟 **Continuous Updates**: We're committed to improving Open WebUI with regular updates, fixes, and new features.
+- ⚖️ **Горизонтальное масштабирование**: Сессии с Redis и поддержка WebSocket для развертываний с несколькими воркерами и узлами за балансировщиками нагрузки.
 
-- 🛡️ **Transparent Security Process**: Security reports are triaged, fixed, and published as open advisories through a documented responsible-disclosure process. See our [Security Policy](https://github.com/open-webui/open-webui/security).
+- 🌐🌍 **Мультиязычность**: Используйте Open WebUI на предпочитаемом языке благодаря поддержке i18n. Мы активно ищем участников, чтобы расширять покрытие языков!
 
-Want to learn more about Open WebUI's features? Check out our [Open WebUI documentation](https://docs.openwebui.com/features) for a comprehensive overview!
+- 🌟 **Регулярные обновления**: Мы постоянно улучшаем Open WebUI регулярными релизами, исправлениями и новыми возможностями.
 
-## The Open WebUI Ecosystem 🌐
+- 🛡️ **Прозрачный процесс безопасности**: Отчёты по безопасности разбираются, исправляются и публикуются открытыми advisory через документированный процесс ответственного раскрытия. См. нашу [Security Policy](https://github.com/open-webui/open-webui/security).
 
-Open WebUI is the core, surrounded by companion apps and infrastructure that extend what your AI can do, where it can reach, and how you run it:
+Хотите узнать больше о возможностях Open WebUI? Ознакомьтесь с нашей [документацией Open WebUI](https://docs.openwebui.com/features) для подробного обзора!
 
-- ⚡ **Open Terminal** ([open-webui/open-terminal](https://github.com/open-webui/open-terminal)): A self-hosted computing environment that plugs into Open WebUI, giving the AI a place to write code, run it, read output, fix errors, and iterate inside the chat.
 
-- 🔒 **Terminals** · Enterprise ([open-webui/terminals](https://github.com/open-webui/terminals)): Per-user isolated containers with separate credentials, resource limits, and network rules. Automatic lifecycle management on Docker or Kubernetes.
+## Экосистема Open WebUI 🌐
 
-- 💻 **cptr** ([open-webui/computer](https://github.com/open-webui/computer)): A standalone, mobile-first computer and coding agent that runs on the machine you own. Files, terminal, and git in a browser tab, reachable from your phone. Connect it into Open WebUI as a model, or reach it from Telegram, WhatsApp, and more.
+Open WebUI — это основа: вокруг неё находятся сопутствующие приложения и инфраструктура, которые расширяют возможности вашей ИИ-системы — туда, куда она может дотянуться, и как именно вы её запускаете:
 
-- 🔄 **oikb** ([open-webui/oikb](https://github.com/open-webui/oikb)): Feed your Knowledge Bases from 45+ sources (GitHub, Confluence, ServiceNow, Salesforce, Jira, Slack, SharePoint, Notion, and more), keeping the tools your team already uses continuously in sync.
+- ⚡ **Open Terminal** ([open-webui/open-terminal](https://github.com/open-webui/open-terminal)): Самостоятельно разворачиваемая вычислительная среда, которая подключается к Open WebUI и даёт ИИ место для написания кода, запуска, чтения вывода, исправления ошибок и итераций прямо в чате.
 
-- 🖥️ **Native Desktop App** ([open-webui/desktop](https://github.com/open-webui/desktop)): Run Open WebUI as a native app on macOS, Windows, and Linux. System-wide Spotlight chat bar with screenshot capture, push-to-talk voice, and optional fully-local inference via a built-in llama.cpp engine.
+- 🔒 **Terminals** · Enterprise ([open-webui/terminals](https://github.com/open-webui/terminals)): Изолированные контейнеры на пользователя с отдельными учётными данными, лимитами ресурсов и правилами сети. Автоматическое управление жизненным циклом в Docker или Kubernetes.
 
-Want to learn more? Check out our [Open WebUI documentation](https://docs.openwebui.com) for more details!
+- 💻 **cptr** ([open-webui/computer](https://github.com/open-webui/computer)): Самостоятельный компьютер и агент для кодинга в формате “mobile-first”, который работает на вашей собственной машине. Файлы, терминал и git в отдельной вкладке браузера — доступны с вашего телефона. Подключайте его к Open WebUI как модель или используйте через Telegram, WhatsApp и другие сервисы.
+
+- 🔄 **oikb** ([open-webui/oikb](https://github.com/open-webui/oikb)): Питайте ваши базы знаний из 45+ источников (GitHub, Confluence, ServiceNow, Salesforce, Jira, Slack, SharePoint, Notion и др.), поддерживая инструменты, которыми уже пользуется ваша команда, в постоянной синхронизации.
+
+- 🖥️ **Нативное настольное приложение** ([open-webui/desktop](https://github.com/open-webui/desktop)): Запускайте Open WebUI как нативное приложение на macOS, Windows и Linux. Системная панель Spotlight-чата с захватом скриншотов, голосом «push-to-talk» и опциональным полностью локальным выводом через встроенный движок llama.cpp.
+
+Хотите узнать больше? Посетите нашу [документацию Open WebUI](https://docs.openwebui.com) для подробностей!
 
 ---
 
-We are incredibly grateful for the generous support of our sponsors. Their contributions help us to maintain and improve our project, ensuring we can continue to deliver quality work to our community. Thank you!
+Мы невероятно благодарны за щедрую поддержку наших спонсоров. Их вклад помогает нам поддерживать и улучшать проект, чтобы мы могли продолжать выпускать качественные изменения для нашего сообщества. Спасибо!
 
-## How to Install 🚀
+## Как установить 🚀
 
-### Installation via Python pip 🐍
 
-Open WebUI can be installed using pip, the Python package installer. Before proceeding, ensure you're using **Python 3.11** to avoid compatibility issues.
+### Установка через Python pip 🐍
 
-1. **Install Open WebUI**:
-   Open your terminal and run the following command to install Open WebUI:
+Open WebUI можно установить с помощью pip, установщика пакетов Python. Перед началом убедитесь, что у вас используется **Python 3.11**, чтобы избежать проблем совместимости.
+
+1. **Установите Open WebUI**:
+   Откройте терминал и выполните следующую команду, чтобы установить Open WebUI:
+
 
    ```bash
    pip install open-webui
    ```
 
-2. **Running Open WebUI**:
-   After installation, you can start Open WebUI by executing:
+2. **Запуск Open WebUI**:
+   После установки вы можете запустить Open WebUI, выполнив команду:
+
 
    ```bash
    open-webui serve
    ```
 
-This will start the Open WebUI server, which you can access at [http://localhost:8080](http://localhost:8080)
+Это запустит сервер Open WebUI, и вы сможете открыть его по адресу [http://localhost:8080](http://localhost:8080)
 
-### Quick Start with Docker 🐳
+### Быстрый старт с Docker 🐳
 
-> [!NOTE]  
-> Please note that for certain Docker environments, additional configurations might be needed. If you encounter any connection issues, our detailed guide on [Open WebUI Documentation](https://docs.openwebui.com/) is ready to assist you.
+
+> [!NOTE]
+> Обратите внимание: для некоторых Docker-сред могут потребоваться дополнительные настройки. Если столкнётесь с проблемами подключения, подробное руководство в [документации Open WebUI](https://docs.openwebui.com/) поможет разобраться.
 
 > [!WARNING]
-> When using Docker to install Open WebUI, make sure to include the `-v open-webui:/app/backend/data` in your Docker command. This step is crucial as it ensures your database is properly mounted and prevents any loss of data.
+> При установке Open WebUI через Docker обязательно добавьте в команду параметр `-v open-webui:/app/backend/data`. Это критически важно: так база данных корректно смонтируется, что предотвращает потерю данных.
 
-> [!TIP]  
-> If you wish to utilize Open WebUI with Ollama included or CUDA acceleration, we recommend utilizing our official images tagged with either `:cuda` or `:ollama`. To enable CUDA, you must install the [Nvidia CUDA container toolkit](https://docs.nvidia.com/dgx/nvidia-container-runtime-upgrade/) on your Linux/WSL system.
+> [!TIP]
+> Если вы хотите использовать Open WebUI с включённым Ollama или с ускорением CUDA, рекомендуем применять наши официальные образы с тегами `:cuda` или `:ollama`. Чтобы включить CUDA, нужно установить [Nvidia CUDA container toolkit](https://docs.nvidia.com/dgx/nvidia-container-runtime-upgrade/) в вашей Linux/WSL-системе.
 
-### Installation with Default Configuration
 
-- **If Ollama is on your computer**, use this command:
+### Установка со стандартной конфигурацией
+
+- **Если Ollama запущен на вашем компьютере**, используйте эту команду:
+
 
   ```bash
   docker run -d -p 3000:8080 --add-host=host.docker.internal:host-gateway -v open-webui:/app/backend/data --name open-webui --restart always ghcr.io/open-webui/open-webui:main
   ```
 
-- **If Ollama is on a Different Server**, use this command:
+- **Если Ollama размещён на другом сервере**, используйте эту команду:
 
-  To connect to Ollama on another server, change the `OLLAMA_BASE_URL` to the server's URL:
+  Чтобы подключиться к Ollama на другом сервере, измените `OLLAMA_BASE_URL` на URL этого сервера:
+
 
   ```bash
   docker run -d -p 3000:8080 -e OLLAMA_BASE_URL=https://example.com -v open-webui:/app/backend/data --name open-webui --restart always ghcr.io/open-webui/open-webui:main
   ```
 
-- **To run Open WebUI with Nvidia GPU support**, use this command:
+- **Чтобы запустить Open WebUI с поддержкой Nvidia GPU**, используйте эту команду:
 
   ```bash
+
   docker run -d -p 3000:8080 --gpus all --add-host=host.docker.internal:host-gateway -v open-webui:/app/backend/data --name open-webui --restart always ghcr.io/open-webui/open-webui:cuda
   ```
 
-### Installation for OpenAI API Usage Only
+### Установка только для OpenAI API
 
-- **If you're only using OpenAI API**, use this command:
+- **Если вы используете только OpenAI API**, используйте эту команду:
+
 
   ```bash
   docker run -d -p 3000:8080 -e OPENAI_API_KEY=your_secret_key -v open-webui:/app/backend/data --name open-webui --restart always ghcr.io/open-webui/open-webui:main
   ```
 
-### Installing Open WebUI with Bundled Ollama Support
+### Установка Open WebUI с встроенной поддержкой Ollama
 
-This installation method uses a single container image that bundles Open WebUI with Ollama, allowing for a streamlined setup via a single command. Choose the appropriate command based on your hardware setup:
+Этот способ установки использует один образ контейнера, в который уже включены Open WebUI и Ollama — так настройка выполняется одной командой. Выберите подходящую команду в зависимости от вашей конфигурации оборудования:
 
-- **With GPU Support**:
-  Utilize GPU resources by running the following command:
+- **С поддержкой GPU**:
+  Используйте ресурсы графического процессора, выполнив команду:
+
 
   ```bash
   docker run -d -p 3000:8080 --gpus=all -v ollama:/root/.ollama -v open-webui:/app/backend/data --name open-webui --restart always ghcr.io/open-webui/open-webui:ollama
   ```
 
-- **For CPU Only**:
-  If you're not using a GPU, use this command instead:
+- **Только CPU**:
+  Если вы не используете GPU, вместо этого выполните команду:
+
 
   ```bash
   docker run -d -p 3000:8080 -v ollama:/root/.ollama -v open-webui:/app/backend/data --name open-webui --restart always ghcr.io/open-webui/open-webui:ollama
   ```
 
-Both commands facilitate a built-in, hassle-free installation of both Open WebUI and Ollama, ensuring that you can get everything up and running swiftly.
+Обе команды обеспечивают встроенную, простую установку Open WebUI и Ollama, чтобы всё можно было быстро запустить.
 
-After installation, you can access Open WebUI at [http://localhost:3000](http://localhost:3000). Enjoy! 😄
+После установки вы сможете открыть Open WebUI по адресу [http://localhost:3000](http://localhost:3000). Удачи! 😄
 
-### Other Installation Methods
 
-We offer various installation alternatives, including non-Docker native installation methods, Docker Compose, Kustomize, and Helm. Visit our [Open WebUI Documentation](https://docs.openwebui.com/getting-started/) or join our [Discord community](https://discord.gg/5rJgQTnV4s) for comprehensive guidance.
+### Другие способы установки
 
-### Troubleshooting
+Мы предлагаем разные варианты установки, включая нативные методы без Docker, Docker Compose, Kustomize и Helm. Посетите нашу [документацию Open WebUI](https://docs.openwebui.com/getting-started/) или присоединяйтесь к нашему [Discord-сообществу](https://discord.gg/5rJgQTnV4s) за подробными рекомендациями.
 
-Encountering connection issues? Our [Open WebUI Documentation](https://docs.openwebui.com/troubleshooting/) has got you covered. For further assistance and to join our vibrant community, visit the [Open WebUI Discord](https://discord.gg/5rJgQTnV4s).
 
-#### Open WebUI: Server Connection Error
+### Устранение неполадок
 
-If you're experiencing connection issues, it’s often due to the WebUI docker container not being able to reach the Ollama server at 127.0.0.1:11434 (host.docker.internal:11434) inside the container . Use the `--network=host` flag in your docker command to resolve this. Note that the port changes from 3000 to 8080, resulting in the link: `http://localhost:8080`.
+Возникли проблемы с подключением? Наша [документация Open WebUI](https://docs.openwebui.com/troubleshooting/) поможет вам разобраться. Для дополнительной помощи и общения с нашим активным сообществом посетите [Discord Open WebUI](https://discord.gg/5rJgQTnV4s).
+
+
+#### Open WebUI: ошибка соединения с сервером
+
+Если у вас возникают проблемы с подключением, часто причина в том, что Docker-контейнер WebUI не может достучаться до сервера Ollama по адресу 127.0.0.1:11434 (host.docker.internal:11434) внутри контейнера. Чтобы исправить это, добавьте в команду Docker флаг `--network=host`. Обратите внимание: порт меняется с 3000 на 8080, поэтому ссылка будет `http://localhost:8080`.
+
 
 **Example Docker Command**:
 
@@ -212,47 +231,55 @@ If you're experiencing connection issues, it’s often due to the WebUI docker c
 docker run -d --network=host -v open-webui:/app/backend/data -e OLLAMA_BASE_URL=http://127.0.0.1:11434 --name open-webui --restart always ghcr.io/open-webui/open-webui:main
 ```
 
-### Keeping Your Docker Installation Up-to-Date
+### Обновляйте Docker-установку
 
-Check our Updating Guide available in our [Open WebUI Documentation](https://docs.openwebui.com/getting-started/updating).
+Смотрите руководство по обновлениям в нашей [документации Open WebUI](https://docs.openwebui.com/getting-started/updating).
 
-### Using the Dev Branch 🌙
+
+### Использование ветки Dev 🌙
 
 > [!WARNING]
-> The `:dev` branch contains the latest unstable features and changes. Use it at your own risk as it may have bugs or incomplete features.
+> Ветка `:dev` содержит самые свежие нестабильные возможности и изменения. Используйте её на свой риск: возможны ошибки или неполностью завершённые функции.
 
-If you want to try out the latest bleeding-edge features and are okay with occasional instability, you can use the `:dev` tag like this:
+Если вам хочется попробовать самые новые «краевые» возможности и вы нормально относитесь к редкой нестабильности, можно использовать тег `:dev` так:
+
 
 ```bash
 docker run -d -p 3000:8080 -v open-webui:/app/backend/data --name open-webui --add-host=host.docker.internal:host-gateway --restart always ghcr.io/open-webui/open-webui:dev
 ```
 
-### Offline Mode
+### Режим офлайн
 
-If you are running Open WebUI in an offline environment, you can set the `HF_HUB_OFFLINE` environment variable to `1` to prevent attempts to download models from the internet.
+Если Open WebUI запущен в среде без доступа в интернет, задайте переменную окружения `HF_HUB_OFFLINE` равной `1`, чтобы предотвратить попытки скачивать модели из интернета.
+
 
 ```bash
 export HF_HUB_OFFLINE=1
 ```
 
-## What's Next? 🌟
+## Что дальше? 🌟
 
-Discover upcoming features on our roadmap in the [Open WebUI Documentation](https://docs.openwebui.com/roadmap/).
+Узнавайте о предстоящих возможностях на нашей дорожной карте в [документации Open WebUI](https://docs.openwebui.com/roadmap/).
 
-## License 📜
 
-This project contains code under multiple licenses. The current codebase includes components licensed under the Open WebUI License with an additional requirement to preserve the "Open WebUI" branding, as well as prior contributions under their respective original licenses. For a detailed record of license changes and the applicable terms for each section of the code, please refer to [LICENSE_HISTORY](./LICENSE_HISTORY). For complete and updated licensing details, please see the [LICENSE](./LICENSE) and [LICENSE_HISTORY](./LICENSE_HISTORY) files.
+## Лицензия 📜
 
-## Support 💬
+Этот проект содержит код под несколькими лицензиями. Текущая кодовая база включает компоненты, лицензированные по лицензии Open WebUI, с дополнительным требованием сохранять брендинг «Open WebUI», а также предыдущие вклады под их соответствующими исходными лицензиями. Для подробной истории изменений лицензий и применимых условий для каждой части кода смотрите [LICENSE_HISTORY](./LICENSE_HISTORY). Полную и актуальную информацию о лицензировании см. в файлах [LICENSE](./LICENSE) и [LICENSE_HISTORY](./LICENSE_HISTORY).
 
-If you have any questions, suggestions, or need assistance, please open an issue or join our
-[Open WebUI Discord community](https://discord.gg/5rJgQTnV4s) to connect with us! 🤝
 
-## Security 🛡️
+## Поддержка 💬
 
-If you believe you've found a security vulnerability, or something that shouldn't be disclosed publicly, please [reach out confidentially through our responsible disclosure program on GitHub](https://github.com/open-webui/open-webui/security). We accept reports only through GitHub, not through any other platform. Thank you for helping us keep Open WebUI secure!
+Если у вас есть вопросы, предложения или нужна помощь, пожалуйста, создайте issue или присоединяйтесь к нашему
+[сообществу Open WebUI в Discord](https://discord.gg/5rJgQTnV4s), чтобы связаться с нами! 🤝
 
-## Star History
+
+## Безопасность 🛡️
+
+Если вы считаете, что обнаружили уязвимость безопасности или что-то, что не должно быть раскрыто публично, пожалуйста, [свяжитесь с нами конфиденциально через программу ответственного раскрытия на GitHub](https://github.com/open-webui/open-webui/security). Мы принимаем отчёты только через GitHub, а не через какие-либо другие платформы. Спасибо, что помогаете нам сохранять Open WebUI в безопасности!
+
+
+## История звёзд
+
 
 <a href="https://star-history.com/#open-webui/open-webui&Date">
   <picture>
@@ -264,4 +291,5 @@ If you believe you've found a security vulnerability, or something that shouldn'
 
 ---
 
-Created by [Timothy Jaeryang Baek](https://github.com/tjbck) - Let's make Open WebUI even more amazing together! 💪
+Сделано [Timothy Jaeryang Baek](https://github.com/tjbck) — давайте вместе сделаем Open WebUI ещё более удивительным! 💪
+
