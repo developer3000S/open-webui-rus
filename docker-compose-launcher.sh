@@ -50,7 +50,7 @@ Usage: $(basename "$0") [OPTIONS]
 Options:
   --enable-gpu[count=N]   Enable GPU passthrough (N = number or "all")
   --enable-api[port=PORT] Expose the Ollama API on PORT (default: 11435)
-  --webui[port=PORT]      Set the WebUI port (default: 3000)
+  --webui[port=PORT]      Set the WebUI port (default: 8083)
   --data[folder=PATH]     Bind-mount a host path for Ollama data
   --playwright            Enable Playwright for web scraping
   --build                 Build images before starting
@@ -76,7 +76,7 @@ headless=false
 drop_project=false
 gpu_count=1
 api_port=11435
-webui_port=3000
+webui_port=8083
 data_dir=""
 
 # ── Parse arguments ───────────────────────────────────────────────────────────
@@ -85,7 +85,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --enable-gpu*)  enable_gpu=true;       gpu_count=$(extract_bracket_value "$1" "1") ;;
     --enable-api*)  enable_api=true;       api_port=$(extract_bracket_value "$1" "11435") ;;
-    --webui*)       webui_port=$(extract_bracket_value "$1" "3000") ;;
+    --webui*)       webui_port=$(extract_bracket_value "$1" "8083") ;;
     --data*)        data_dir=$(extract_bracket_value "$1" "./ollama-data") ;;
     --playwright)   enable_playwright=true ;;
     --build)        build_image=true ;;
