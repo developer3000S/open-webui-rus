@@ -10,8 +10,13 @@ services:
     ports:
       - ${OPEN_WEBUI_PORT-8083}:8080
     environment:
-      - 'OLLAMA_BASE_URL=http://127.0.0.1:11434'
+      - 'OLLAMA_BASE_URL=http://host.docker.internal:11434'
       - 'WEBUI_SECRET_KEY='
+      # Suppresses UNEXPECTED position_ids warning from sentence-transformers ONNX backend
+      - 'TRANSFORMERS_NO_ADVISORY_WARNINGS=1'
+      - 'TOKENIZERS_PARALLELISM=false'
+      # Enable proxy headers so uvicorn correctly handles forwarded requests
+      - 'FORWARDED_ALLOW_IPS=*'
     extra_hosts:
       - host.docker.internal:host-gateway
     restart: unless-stopped
