@@ -21,7 +21,7 @@ dependencies = [
     "authlib==1.7.2",
 
     "requests==2.34.2",
-    "aiohttp==3.13.5", # do not update to 3.13.3 - broken
+    "aiohttp==3.14.1", # do not update to 3.13.3 - broken
     "async-timeout==5.0.1",
     "aiocache==0.12.3",
     "aiofiles==25.1.0",
@@ -57,7 +57,7 @@ dependencies = [
 
     "langchain==1.2.10",
     "langchain-community==0.4.2",
-    "langchain-classic==1.0.7",
+    "langchain-classic==1.0.8",
     "langchain-text-splitters==1.1.2",
 
     "fake-useragent==2.2.0",
@@ -99,7 +99,7 @@ dependencies = [
     "rapidocr-onnxruntime==1.4.4",
     "rank-bm25==0.2.2",
 
-    "onnxruntime==1.26.0",
+    "onnxruntime==1.27.0",
     "faster-whisper==1.2.1",
 
     "black==26.5.1",
