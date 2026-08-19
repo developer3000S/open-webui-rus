@@ -157,7 +157,7 @@ Open WebUI можно установить с помощью pip, установ
 
 
   ```bash
-  docker run -d -p 3000:8080 --add-host=host.docker.internal:host-gateway -v open-webui:/app/backend/data --name open-webui --restart always ghcr.io/open-webui/open-webui:main
+  docker run -d -p 8083:8080 --add-host=host.docker.internal:host-gateway -v open-webui:/app/backend/data --name open-webui --restart always ghcr.io/open-webui/open-webui:main
   ```
 
 - **Если Ollama размещён на другом сервере**, используйте эту команду:
@@ -166,14 +166,14 @@ Open WebUI можно установить с помощью pip, установ
 
 
   ```bash
-  docker run -d -p 3000:8080 -e OLLAMA_BASE_URL=https://example.com -v open-webui:/app/backend/data --name open-webui --restart always ghcr.io/open-webui/open-webui:main
+  docker run -d -p 8083:8080 -e OLLAMA_BASE_URL=https://example.com -v open-webui:/app/backend/data --name open-webui --restart always ghcr.io/open-webui/open-webui:main
   ```
 
 - **Чтобы запустить Open WebUI с поддержкой Nvidia GPU**, используйте эту команду:
 
   ```bash
 
-  docker run -d -p 3000:8080 --gpus all --add-host=host.docker.internal:host-gateway -v open-webui:/app/backend/data --name open-webui --restart always ghcr.io/open-webui/open-webui:cuda
+  docker run -d -p 8083:8080 --gpus all --add-host=host.docker.internal:host-gateway -v open-webui:/app/backend/data --name open-webui --restart always ghcr.io/open-webui/open-webui:cuda
   ```
 
 ### Установка только для OpenAI API
@@ -182,7 +182,7 @@ Open WebUI можно установить с помощью pip, установ
 
 
   ```bash
-  docker run -d -p 3000:8080 -e OPENAI_API_KEY=your_secret_key -v open-webui:/app/backend/data --name open-webui --restart always ghcr.io/open-webui/open-webui:main
+  docker run -d -p 8083:8080 -e OPENAI_API_KEY=your_secret_key -v open-webui:/app/backend/data --name open-webui --restart always ghcr.io/open-webui/open-webui:main
   ```
 
 ### Установка Open WebUI с встроенной поддержкой Ollama
@@ -194,7 +194,7 @@ Open WebUI можно установить с помощью pip, установ
 
 
   ```bash
-  docker run -d -p 3000:8080 --gpus=all -v ollama:/root/.ollama -v open-webui:/app/backend/data --name open-webui --restart always ghcr.io/open-webui/open-webui:ollama
+  docker run -d -p 8083:8080 --gpus=all -v ollama:/root/.ollama -v open-webui:/app/backend/data --name open-webui --restart always ghcr.io/open-webui/open-webui:ollama
   ```
 
 - **Только CPU**:
@@ -202,12 +202,12 @@ Open WebUI можно установить с помощью pip, установ
 
 
   ```bash
-  docker run -d -p 3000:8080 -v ollama:/root/.ollama -v open-webui:/app/backend/data --name open-webui --restart always ghcr.io/open-webui/open-webui:ollama
+  docker run -d -p 8083:8080 -v ollama:/root/.ollama -v open-webui:/app/backend/data --name open-webui --restart always ghcr.io/open-webui/open-webui:ollama
   ```
 
 Обе команды обеспечивают встроенную, простую установку Open WebUI и Ollama, чтобы всё можно было быстро запустить.
 
-После установки вы сможете открыть Open WebUI по адресу [http://localhost:3000](http://localhost:3000). Удачи! 😄
+После установки вы сможете открыть Open WebUI по адресу [http://localhost:8083](http://localhost:8083). Удачи! 😄
 
 
 ### Другие способы установки
@@ -222,7 +222,7 @@ Open WebUI можно установить с помощью pip, установ
 
 #### Open WebUI: ошибка соединения с сервером
 
-Если у вас возникают проблемы с подключением, часто причина в том, что Docker-контейнер WebUI не может достучаться до сервера Ollama по адресу 127.0.0.1:11434 (host.docker.internal:11434) внутри контейнера. Чтобы исправить это, добавьте в команду Docker флаг `--network=host`. Обратите внимание: порт меняется с 3000 на 8080, поэтому ссылка будет `http://localhost:8080`.
+Если у вас возникают проблемы с подключением, часто причина в том, что Docker-контейнер WebUI не может достучаться до сервера Ollama по адресу 127.0.0.1:11434 (host.docker.internal:11434) внутри контейнера. Чтобы исправить это, добавьте в команду Docker флаг `--network=host`. Обратите внимание: порт меняется с 8083 на 8080, поэтому ссылка будет `http://localhost:8080`.
 
 
 **Example Docker Command**:
@@ -245,7 +245,7 @@ docker run -d --network=host -v open-webui:/app/backend/data -e OLLAMA_BASE_URL=
 
 
 ```bash
-docker run -d -p 3000:8080 -v open-webui:/app/backend/data --name open-webui --add-host=host.docker.internal:host-gateway --restart always ghcr.io/open-webui/open-webui:dev
+docker run -d -p 8083:8080 -v open-webui:/app/backend/data --name open-webui --add-host=host.docker.internal:host-gateway --restart always ghcr.io/open-webui/open-webui:dev
 ```
 
 ### Режим офлайн
