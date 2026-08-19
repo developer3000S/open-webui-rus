@@ -67,10 +67,10 @@ jobs:
         run: rm -rf /opt/hostedtoolcache
 
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -238,7 +238,7 @@ jobs:
     steps:
       - name: Create Helm charts app token
         id: helm-app-token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ secrets.HELM_CHARTS_APP_ID }}
           private-key: ${{ secrets.HELM_CHARTS_APP_PRIVATE_KEY }}
@@ -266,7 +266,7 @@ jobs:
           echo "tag=${image_tag}" >> "${GITHUB_OUTPUT}"
 
       - name: Dispatch Helm chart automation
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ steps.helm-app-token.outputs.token }}
           script: |
