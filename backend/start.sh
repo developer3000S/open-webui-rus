@@ -110,4 +110,5 @@ exec env WEBUI_SECRET_KEY="${WEBUI_SECRET_KEY:-}" \
     --host "$HOST" \
     --port "$PORT" \
     --forwarded-allow-ips "${FORWARDED_ALLOW_IPS:-*}" \
+    --proxy-headers \
     "${ARGS[@]}"
