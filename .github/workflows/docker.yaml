@@ -170,7 +170,7 @@ jobs:
 
       - name: Download digests
         id: download
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           pattern: digests-${{ matrix.variant.name }}-*
           path: /tmp/digests
