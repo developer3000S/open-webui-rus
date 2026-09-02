@@ -203,7 +203,7 @@ window.Chart = parent.Chart; // Chart previously assigned on parent
 		{sandbox}
 		{allowFullscreen}
 		on:load={onLoad}
-	/>
+	></iframe>
 {:else if iframeSrc}
 	<iframe
 		bind:this={iframe}
@@ -217,5 +217,5 @@ window.Chart = parent.Chart; // Chart previously assigned on parent
 		referrerpolicy={referrerPolicy}
 		{allowFullscreen}
 		on:load={onLoad}
-	/>
+	></iframe>
 {/if}
