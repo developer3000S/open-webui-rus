@@ -31,6 +31,12 @@ readonly VOLUME="open-webui-rus_open-webui"
 readonly HOST_PORT="${OPEN_WEBUI_PORT:-8083}"
 readonly CONTAINER_PORT=8080
 
+# Освобождение имени контейнера (docker run не перезаписывает существующее имя)
+if docker inspect "$CONTAINER" &>/dev/null; then
+  echo "⚠️  Контейнер ${CONTAINER} уже существует. Удаляем..."
+  docker rm -f "$CONTAINER" 2>/dev/null || echo "Не удалось удалить контейнер ${CONTAINER}"
+fi
+
 clear_port "$HOST_PORT"
 
 echo "========================================="

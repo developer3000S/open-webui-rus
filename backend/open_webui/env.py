@@ -188,8 +188,15 @@ changelog_json = {}
 
 # Iterate over each version
 for version in soup.find_all('h2'):
-    version_number = version.get_text().strip().split(' - ')[0][1:-1]  # Remove brackets
-    date = version.get_text().strip().split(' - ')[1]
+    text = version.get_text().strip()
+    parts = text.split(' - ', 1)
+
+    # Skip date-less entries (e.g., "## [Unreleased]") that don't match "[version] - [date]"
+    if len(parts) != 2:
+        continue
+
+    version_number = parts[0][1:-1]  # Remove brackets
+    date = parts[1]
 
     version_data = {'date': date}
 
