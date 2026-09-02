@@ -42,6 +42,8 @@
 		updateKnowledgeDirectory,
 		deleteKnowledgeDirectory,
 		moveFileInKnowledge,
+		cancelFileEmbedding,
+		listKnowledgeDirectories,
 		syncKnowledgeDiff,
 		syncKnowledgeCleanup,
 		testExternalKnowledgeRetrieval
@@ -59,7 +61,7 @@
 	import AddContentMenu from './KnowledgeBase/AddContentMenu.svelte';
 	import AddTextContentModal from './KnowledgeBase/AddTextContentModal.svelte';
 	import NewDirectoryModal from './KnowledgeBase/NewDirectoryModal.svelte';
-	import KnowledgeBreadcrumbs from './KnowledgeBase/KnowledgeBreadcrumbs.svelte';
+	import MoveToFolderModal from './KnowledgeBase/MoveToFolderModal.svelte'
 
 	import SyncConfirmDialog from '../../common/ConfirmDialog.svelte';
 	import ConfirmDialog from '../../common/ConfirmDialog.svelte';
@@ -84,6 +86,8 @@
 	let showAddWebpageModal = false;
 	let showAddTextContentModal = false;
 	let showNewDirectoryModal = false;
+		let showMoveFileModal = false;
+		let showCancelEmbeddingModal = false;
 
 	let showSyncConfirmModal = false;
 	let pendingSyncFiles: Array<{ path: string; filename: string; file: File }> | null = null;
@@ -862,6 +866,58 @@
 		}
 	};
 
+	// Handle "Move to folder" button
+	let pendingMoveFileId: string | null = null;
+	let allDirectories = [];
+	const handleMoveFile = async (fileId: string) => {
+		pendingMoveFileId = fileId;
+		showMoveFileModal = true;
+
+		// Load all directories for this knowledge base
+		try {
+			const res = await listKnowledgeDirectories(localStorage.token, id);
+			if (res?.items) {
+				allDirectories = res.items;
+			}
+		} catch (e) {
+			console.warn('Failed to load directories:', e);
+		}
+	};
+
+	const handleMoveFileConfirm = (directoryId: string | null) => {
+		if (pendingMoveFileId) {
+			moveFileToDirectoryHandler(pendingMoveFileId, directoryId);
+		}
+		pendingMoveFileId = null;
+		showMoveFileModal = false;
+	};
+
+	// Handle "Cancel embedding" button
+	let pendingCancelFileId: string | null = null;
+	const handleCancelEmbedding = (fileId: string) => {
+		pendingCancelFileId = fileId;
+		showCancelEmbeddingModal = true;
+	};
+
+	const handleCancelEmbeddingConfirm = async () => {
+		if (!pendingCancelFileId) return;
+
+		try {
+			const res = await cancelFileEmbedding(localStorage.token, id, pendingCancelFileId);
+			if (res?.cancelled) {
+				toast.success($i18n.t('Embedding cancelled.'));
+				getItemsPage();
+			} else {
+				toast.error($i18n.t('Failed to cancel embedding.'));
+			}
+		} catch (e) {
+			toast.error(`${e}`);
+		} finally {
+			pendingCancelFileId = null;
+			showCancelEmbeddingModal = false;
+		}
+	};
+
 	const deleteFileHandler = async (fileId) => {
 		try {
 			console.log('Starting file deletion process for:', fileId);
@@ -1188,6 +1244,29 @@
 		createDirectoryHandler(e.detail.name);
 	}}
 />
+
+<MoveToFolderModal
+	bind:show={showMoveFileModal}
+	directories={allDirectories}
+	excludeId={pendingMoveFileId}
+	title={$i18n.t('Move file to folder')}
+	on:move={(e) => {
+		handleMoveFileConfirm(e.detail.directoryId);
+	}}
+/>
+
+<ConfirmDialog
+	bind:show={showCancelEmbeddingModal}
+	title={$i18n.t('Cancel embedding?')}
+	on:confirm={handleCancelEmbeddingConfirm}
+	on:cancel={() => {
+		pendingCancelFileId = null;
+	}}
+>
+	<div class="text-sm text-gray-700 dark:text-gray-300 flex-1 line-clamp-3">
+		{$i18n.t('Are you sure you want to cancel embedding for this file? This will stop processing and the file will not be indexed.')}
+	</div>
+</ConfirmDialog>
 
 <input
 	id="files-input"
@@ -1591,6 +1670,8 @@
 													moveFileToDirectoryHandler(fileId, dirId)}
 												onMoveDirectoryToDirectory={(dirId, targetId) =>
 													moveDirectoryHandler(dirId, targetId)}
+										onMoveFile={(fileId) => handleMoveFile(fileId)}
+										onCancelEmbedding={(fileId) => handleCancelEmbedding(fileId)}
 											/>
 										</div>
 
