@@ -1088,6 +1088,34 @@ export const deleteKnowledgeDirectory = async (
 	return res;
 };
 
+export const listKnowledgeDirectories = async (token: string, id: string) => {
+	let error = null;
+
+	const res = await fetch(`${WEBUI_API_BASE_URL}/knowledge/${id}/dirs`, {
+		method: 'GET',
+		headers: {
+			Accept: 'application/json',
+			'Content-Type': 'application/json',
+			authorization: `Bearer ${token}`
+		}
+	})
+		.then(async (res) => {
+			if (!res.ok) throw await res.json();
+			return res.json();
+		})
+		.catch((err) => {
+			error = err.detail;
+			console.error(err);
+			return null;
+		});
+
+	if (error) {
+		throw error;
+	}
+
+	return res;
+};
+
 export const moveFileInKnowledge = async (
 	token: string,
 	id: string,
@@ -1107,6 +1135,35 @@ export const moveFileInKnowledge = async (
 			file_id: fileId,
 			directory_id: directoryId ?? null
 		})
+	})
+		.then(async (res) => {
+			if (!res.ok) throw await res.json();
+			return res.json();
+		})
+		.catch((err) => {
+			error = err.detail;
+			console.error(err);
+			return null;
+		});
+
+	if (error) {
+		throw error;
+	}
+
+	return res;
+};
+
+export const cancelFileEmbedding = async (token: string, knowledgeId: string, fileId: string) => {
+	let error = null;
+
+	const res = await fetch(`${WEBUI_API_BASE_URL}/knowledge/${knowledgeId}/file/cancel`, {
+		method: 'POST',
+		headers: {
+			Accept: 'application/json',
+			'Content-Type': 'application/json',
+			authorization: `Bearer ${token}`
+		},
+		body: JSON.stringify({ file_id: fileId })
 	})
 		.then(async (res) => {
 			if (!res.ok) throw await res.json();

@@ -49,7 +49,7 @@ google-genai==2.10.0
 
 langchain==1.2.10
 langchain-community==0.4.2
-langchain-classic==1.0.7
+langchain-classic==1.0.8
 langchain-text-splitters==1.1.2
 
 fake-useragent==2.2.0
@@ -88,10 +88,10 @@ soundfile==0.13.1
 
 pillow==12.2.0
 opencv-python-headless==4.13.0.92
-rapidocr-onnxruntime==1.4.4
+rapidocr
 rank-bm25==0.2.2
 
-onnxruntime==1.26.0
+onnxruntime==1.27.0
 faster-whisper==1.2.1
 
 black==26.5.1
@@ -124,7 +124,7 @@ boto3==1.42.62
 # mariadb==1.1.14 should be added if you want to support MariaDB
 # valkey-glide-sync==2.3.1 # optional: install manually if VECTOR_DB=valkey
 
-pymilvus==2.6.14
+pymilvus==3.0.0
 qdrant-client==1.18.0
 playwright==1.60.0 # Caution: version must match docker-compose.playwright.yaml - Update the docker-compose.yaml if necessary
 elasticsearch==9.4.1

@@ -899,6 +899,14 @@ class KnowledgeTable:
             result = await db.execute(stmt)
             return [KnowledgeDirectoryModel.model_validate(d) for d in result.scalars().all()]
 
+    async def list_directories(
+        self,
+        knowledge_id: str,
+        db: Optional[AsyncSession] = None,
+    ) -> list[KnowledgeDirectoryModel]:
+        """Alias for get_all_directories."""
+        return await self.get_all_directories(knowledge_id, db)
+
     async def get_files_with_directory_ids(
         self,
         knowledge_id: str,

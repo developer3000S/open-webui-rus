@@ -1,16 +1,25 @@
 services:
+  ollama:
+    volumes:
+      - ollama:/root/.ollama
+    container_name: ollama
+    pull_policy: always
+    tty: true
+    restart: unless-stopped
+    image: ollama/ollama:${OLLAMA_DOCKER_TAG:-latest}
+
   open-webui:
     build:
       context: .
       dockerfile: Dockerfile
-    image: ghcr.io/open-webui/open-webui:${WEBUI_DOCKER_TAG-main}
+    image: ghcr.io/open-webui/open-webui:${WEBUI_DOCKER_TAG:-main}
     container_name: open-webui
     volumes:
       - open-webui:/app/backend/data
       # Mount updated start.sh to apply --proxy-headers fix without rebuilding
       - ./backend/start.sh:/app/backend/start.sh:ro
     ports:
-      - ${OPEN_WEBUI_PORT-8083}:8080
+      - ${OPEN_WEBUI_PORT:-3000}:8080
     environment:
       - 'OLLAMA_BASE_URL=http://host.docker.internal:11434'
       - 'WEBUI_SECRET_KEY='

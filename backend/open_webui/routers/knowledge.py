@@ -1282,6 +1282,86 @@ async def get_pending_knowledge_files(
 
 
 ############################
+# CancelPendingKnowledgeFile
+############################
+
+
+@router.post('/{id}/file/cancel')
+async def cancel_pending_knowledge_file(
+    id: str,
+    form_data: KnowledgeFileIdForm,
+    user=Depends(get_verified_user),
+    db: AsyncSession = Depends(get_async_session),
+):
+    """Cancel embedding processing for a pending/processing file.
+
+    Removes the file from the database if it still has status 'pending' or
+    'processing' and belongs to this knowledge base.  This lets users abort a
+    stuck or long-running embedding job directly from the UI.
+    """
+    knowledge = await Knowledges.get_knowledge_by_id(id=id, db=db)
+    if not knowledge:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ERROR_MESSAGES.NOT_FOUND,
+        )
+    if is_external_knowledge(knowledge):
+        external_knowledge_error()
+
+    if (
+        knowledge.user_id != user.id
+        and not await AccessGrants.has_access(
+            user_id=user.id,
+            resource_type='knowledge',
+            resource_id=knowledge.id,
+            permission='write',
+            db=db,
+        )
+        and user.role != 'admin'
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=ERROR_MESSAGES.ACCESS_PROHIBITED,
+        )
+
+    file = await Files.get_file_by_id(form_data.file_id, db=db)
+    if not file:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ERROR_MESSAGES.NOT_FOUND,
+        )
+
+    # Only allow cancellation for files still being processed that belong to this knowledge base
+    knowledge_id_in_meta = (file.meta or {}).get('data', {}).get('knowledge_id') if file.meta else None
+    file_status = (file.data or {}).get('status') if file.data else None
+
+    if knowledge_id_in_meta != id or file_status not in ('pending', 'processing'):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail='File is not in a cancellable state for this knowledge base.',
+        )
+
+    # Only the file owner or admin can cancel
+    if file.user_id != user.id and user.role != 'admin':
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=ERROR_MESSAGES.ACCESS_PROHIBITED,
+        )
+
+    # Delete the file record entirely so it disappears from the pending list
+    await Files.delete_file_by_id(form_data.file_id, db=db)
+
+    # Also attempt to clean up storage artifact (best-effort)
+    if file.path:
+        try:
+            Storage.delete_file(file.path)
+        except Exception as e:
+            log.debug(f'Could not delete storage file during cancel: {e}')
+
+    return {'cancelled': True, 'file_id': form_data.file_id}
+
+
+############################
 # GetKnowledgeFilesById
 ############################
 
@@ -2214,6 +2294,45 @@ async def create_knowledge_directory(
         data={'knowledge_id': id, 'name': directory.name, 'parent_id': directory.parent_id},
     )
     return directory
+
+
+class KnowledgeDirectoryListResponse(BaseModel):
+    items: list[KnowledgeDirectoryModel]
+    total: int
+
+
+@router.get('/{id}/dirs', response_model=KnowledgeDirectoryListResponse)
+async def list_knowledge_directories(
+    id: str,
+    user=Depends(get_verified_user),
+    db: AsyncSession = Depends(get_async_session),
+):
+    """Return all directories for a knowledge base (flat list, for move-to-folder modal)."""
+    knowledge = await Knowledges.get_knowledge_by_id(id=id, db=db)
+    if not knowledge:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ERROR_MESSAGES.NOT_FOUND,
+        )
+
+    if not (
+        user.role == 'admin'
+        or knowledge.user_id == user.id
+        or await AccessGrants.has_access(
+            user_id=user.id,
+            resource_type='knowledge',
+            resource_id=knowledge.id,
+            permission='read',
+            db=db,
+        )
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=ERROR_MESSAGES.ACCESS_PROHIBITED,
+        )
+
+    directories = await Knowledges.list_directories(knowledge_id=id, db=db)
+    return KnowledgeDirectoryListResponse(items=directories, total=len(directories))
 
 
 @router.post('/{id}/dirs/{dir_id}/update', response_model=KnowledgeDirectoryModel)

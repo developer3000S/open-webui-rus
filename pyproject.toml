@@ -57,7 +57,7 @@ dependencies = [
 
     "langchain==1.2.10",
     "langchain-community==0.4.2",
-    "langchain-classic==1.0.7",
+    "langchain-classic==1.0.8",
     "langchain-text-splitters==1.1.2",
 
     "fake-useragent==2.2.0",
@@ -96,10 +96,10 @@ dependencies = [
 
     "pillow==12.2.0",
     "opencv-python-headless==4.13.0.92",
-    "rapidocr-onnxruntime==1.4.4",
+    "rapidocr",
     "rank-bm25==0.2.2",
 
-    "onnxruntime==1.26.0",
+    "onnxruntime==1.27.0",
     "faster-whisper==1.2.1",
 
     "black==26.5.1",
@@ -161,7 +161,7 @@ all = [
     "qdrant-client==1.18.0",
     
     "weaviate-client==4.20.3",
-    "pymilvus==2.6.14",
+    "pymilvus==3.0.0",
     "pinecone==6.0.2",
     "oracledb==3.4.2",
     "colbert-ai==0.2.22",

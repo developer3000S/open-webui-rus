@@ -21,6 +21,7 @@
 	import GarbageBin from '$lib/components/icons/GarbageBin.svelte';
 	import Pencil from '$lib/components/icons/Pencil.svelte';
 	import Spinner from '$lib/components/common/Spinner.svelte';
+	import Folder from '$lib/components/icons/Folder.svelte';
 	import DirectoryRow from './DirectoryRow.svelte';
 
 	export let knowledge = null;
@@ -36,6 +37,8 @@
 	export let onDeleteDirectory = (id: string) => {};
 	export let onMoveFileToDirectory = (fileId: string, directoryId: string) => {};
 	export let onMoveDirectoryToDirectory = (dirId: string, targetDirectoryId: string) => {};
+	export let onMoveFile = (fileId: string) => {};
+	export let onCancelEmbedding = (fileId: string) => {};
 
 	let editingFileId: string | null = null;
 	let editName = '';
@@ -208,6 +211,33 @@
 									<Download className="size-3.5" />
 									{$i18n.t('Download')}
 								</button>
+								{#if file?.status === 'uploading' || file?.status === 'processing' || file?.status === 'pending'}
+								<button
+									type="button"
+									class="select-none flex rounded-xl py-1.5 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 transition items-center gap-2 text-sm text-red-500 dark:text-red-400"
+									on:click={() => {
+										onCancelEmbedding(file?.id ?? file?.tempId);
+									}}
+								>
+									<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-3.5">
+										<circle cx="12" cy="12" r="10" />
+										<line x1="15" y1="9" x2="9" y2="15" />
+										<line x1="9" y1="9" x2="15" y2="15" />
+									</svg>
+									{$i18n.t('Cancel embedding')}
+								</button>
+								{:else}
+								<button
+									type="button"
+									class="select-none flex rounded-xl py-1.5 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 transition items-center gap-2 text-sm"
+									on:click={() => {
+										onMoveFile(file?.id ?? file?.tempId);
+									}}
+								>
+									<Folder className="size-3.5" />
+									{$i18n.t('Move to folder')}
+								</button>
+								{/if}
 								<button
 									type="button"
 									class="select-none flex rounded-xl py-1.5 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 transition items-center gap-2 text-sm"
