@@ -5,10 +5,6 @@ set -euo pipefail
 # Запуск Open WebUI через Docker Compose
 # ---------------------------------------------------------------------------
 
-echo "========================================="
-echo "Open WebUI Docker Compose Runner"
-echo "========================================="
-
 # Проверяем доступность docker-compose
 if ! command -v docker-compose &> /dev/null; then
     echo "❌ docker-compose не найден. Используем стандартный docker..."
@@ -22,17 +18,37 @@ else
     DOCKER_COMPOSE_CMD="docker-compose"
 fi
 
-# Проверяем порт
-HOST_PORT="${OPEN_WEBUI_PORT:-8083}"
-if command -v nc &> /dev/null; then
-    if nc -z localhost "$HOST_PORT" &> /dev/null; then
-        echo "⚠️  Порт $HOST_PORT уже используется. Останавливаем существующие контейнеры..."
-        $DOCKER_COMPOSE_CMD down 2>/dev/null || true
-    fi
-fi
+readonly HOST_PORT="${OPEN_WEBUI_PORT:-8083}"
 
-echo "🛑 Остановка существующих контейнеров..."
-$DOCKER_COMPOSE_CMD down 2>/dev/null || echo "Контейнеры не найдены или уже остановлены"
+# Очистка используемых портов (освобождаем только процессы, слушающие порт)
+clear_port() {
+  local port=$1
+  if command -v fuser &> /dev/null; then
+    if fuser "$port/tcp" &> /dev/null 2>&1; then
+      echo "⚠️  Порт $port уже используется. Освобождаем..."
+      fuser -k "$port/tcp" 2>/dev/null || echo "Не удалось освободить порт $port"
+    fi
+  elif command -v lsof &> /dev/null; then
+    if lsof -i :"$port" &> /dev/null 2>&1; then
+      echo "⚠️  Порт $port уже используется. Освобождаем..."
+      local pids
+      pids=$(lsof -t -i :"$port" 2>/dev/null || true)
+      if [[ -n "$pids" ]]; then
+        kill $pids 2>/dev/null || echo "Не удалось освободить порт $port"
+      fi
+    fi
+  fi
+}
+
+echo "========================================="
+echo "Open WebUI Docker Compose Runner"
+echo "========================================="
+
+echo "🧹 Очистка старых контейнеров..."
+$DOCKER_COMPOSE_CMD down --remove-orphans 2>/dev/null || true
+docker system prune -f 2>/dev/null || true
+
+clear_port "$HOST_PORT"
 
 echo "🔨 Сборка и запуск контейнеров..."
 if ! $DOCKER_COMPOSE_CMD up -d --build; then

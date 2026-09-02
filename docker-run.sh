@@ -5,32 +5,43 @@ set -euo pipefail
 # Build and run the Open WebUI Docker container locally.
 # ---------------------------------------------------------------------------
 
+# Очистка используемых портов (освобождаем только процессы, слушающие порт)
+clear_port() {
+  local port=$1
+  if command -v fuser &> /dev/null; then
+    if fuser "$port/tcp" &> /dev/null 2>&1; then
+      echo "⚠️  Порт $port уже используется. Освобождаем..."
+      fuser -k "$port/tcp" 2>/dev/null || echo "Не удалось освободить порт $port"
+    fi
+  elif command -v lsof &> /dev/null; then
+    if lsof -i :"$port" &> /dev/null 2>&1; then
+      echo "⚠️  Порт $port уже используется. Освобождаем..."
+      local pids
+      pids=$(lsof -t -i :"$port" 2>/dev/null || true)
+      if [[ -n "$pids" ]]; then
+        kill $pids 2>/dev/null || echo "Не удалось освободить порт $port"
+      fi
+    fi
+  fi
+}
+
 readonly IMAGE="open-webui"
 readonly CONTAINER="open-webui"
 readonly VOLUME="open-webui-rus_open-webui"
 readonly HOST_PORT="${OPEN_WEBUI_PORT:-8083}"
 readonly CONTAINER_PORT=8080
 
+clear_port "$HOST_PORT"
+
 echo "========================================="
 echo "Open WebUI Docker Runner"
 echo "========================================="
-
-# Проверяем, доступен ли порт
-if command -v nc &> /dev/null; then
-    if nc -z localhost "$HOST_PORT" &> /dev/null; then
-        echo "⚠️  Порт $HOST_PORT уже используется. Убедитесь, что нет других контейнеров Open WebUI."
-    fi
-fi
 
 echo "🔨 Сборка образа ${IMAGE}..."
 if ! docker build -t "$IMAGE" .; then
     echo "❌ Ошибка сборки образа"
     exit 1
 fi
-
-echo "🛑 Остановка существующего контейнера ${CONTAINER}..."
-docker stop "$CONTAINER" 2>/dev/null || echo "Контейнер ${CONTAINER} не найден или уже остановлен"
-docker rm "$CONTAINER" 2>/dev/null || echo "Контейнер ${CONTAINER} не найден или уже удален"
 
 echo "💾 Создание тома данных ${VOLUME}..."
 docker volume create "$VOLUME" 2>/dev/null || echo "Том ${VOLUME} уже существует"
@@ -46,9 +57,6 @@ if ! docker run -d \
     echo "❌ Ошибка запуска контейнера"
     exit 1
 fi
-
-echo "🧹 Очистка dangling образов..."
-docker image prune -f
 
 echo "✅ Open WebUI запущен!"
 echo ""

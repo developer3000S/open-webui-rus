@@ -6,6 +6,26 @@ set -euo pipefail
 # Supports GPU auto-detection, configurable ports, data mounts, and Playwright.
 # ---------------------------------------------------------------------------
 
+# Очистка используемых портов (освобождаем только процессы, слушающие порт)
+clear_port() {
+  local port=$1
+  if command -v fuser &> /dev/null; then
+    if fuser "$port/tcp" &> /dev/null 2>&1; then
+      echo "⚠️  Порт $port уже используется. Освобождаем..."
+      fuser -k "$port/tcp" 2>/dev/null || echo "Не удалось освободить порт $port"
+    fi
+  elif command -v lsof &> /dev/null; then
+    if lsof -i :"$port" &> /dev/null 2>&1; then
+      echo "⚠️  Порт $port уже используется. Освобождаем..."
+      local pids
+      pids=$(lsof -t -i :"$port" 2>/dev/null || true)
+      if [[ -n "$pids" ]]; then
+        kill $pids 2>/dev/null || echo "Не удалось освободить порт $port"
+      fi
+    fi
+  fi
+}
+
 readonly BOLD='\033[1m'
 readonly GREEN='\033[1;32m'
 readonly WHITE='\033[1;37m'
@@ -103,6 +123,21 @@ if [[ "$drop_project" == true ]]; then
   docker compose down --remove-orphans
   echo -e "${GREEN}${BOLD}Compose project stopped and cleaned up.${RESET}"
   exit 0
+fi
+
+# ── Cleanup: old containers and used ports ────────────────────────────────────
+
+if command -v docker &>/dev/null; then
+  echo -e "${WHITE}${BOLD}Cleaning up old containers...${RESET}"
+  docker compose down --remove-orphans 2>/dev/null || true
+  docker stop open-webui ollama 2>/dev/null || true
+  docker rm open-webui ollama 2>/dev/null || true
+  docker system prune -f 2>/dev/null || true
+fi
+
+clear_port "$webui_port"
+if [[ "$enable_api" == true ]]; then
+  clear_port "$api_port"
 fi
 
 # ── Build compose command ─────────────────────────────────────────────────────
