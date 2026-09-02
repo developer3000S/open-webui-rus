@@ -1348,8 +1348,20 @@ async def cancel_pending_knowledge_file(
             detail=ERROR_MESSAGES.ACCESS_PROHIBITED,
         )
 
-    # Delete the file record entirely so it disappears from the pending list
+    # Signal cancellation through the file status, then remove the record.
+    # The in-flight processing pipeline (BackgroundTasks) re-reads the file at
+    # its checkpoints and aborts once it sees 'cancelled' or a missing record.
+    await Files.update_file_data_by_id(form_data.file_id, {'status': 'cancelled'}, db=db)
     await Files.delete_file_by_id(form_data.file_id, db=db)
+
+    # Best-effort cleanup of any vectors already written for this file
+    try:
+        await ASYNC_VECTOR_DB_CLIENT.delete(collection_name=id, filter={'file_id': form_data.file_id})
+        file_collection = f'file-{form_data.file_id}'
+        if await ASYNC_VECTOR_DB_CLIENT.has_collection(collection_name=file_collection):
+            await ASYNC_VECTOR_DB_CLIENT.delete_collection(collection_name=file_collection)
+    except Exception as e:
+        log.debug(f'Could not clean up vectors for cancelled file {form_data.file_id}: {e}')
 
     # Also attempt to clean up storage artifact (best-effort)
     if file.path:

@@ -42,7 +42,7 @@ from open_webui.models.knowledge import Knowledges
 from open_webui.models.users import Users
 from open_webui.retrieval.vector.async_client import ASYNC_VECTOR_DB_CLIENT
 from open_webui.routers.audio import transcribe
-from open_webui.routers.retrieval import ProcessFileForm, process_file
+from open_webui.routers.retrieval import ProcessFileForm, process_file, embedding_cancelled, cleanup_cancelled_embedding
 from open_webui.storage.provider import Storage
 from open_webui.utils.auth import get_admin_user, get_verified_user
 from open_webui.utils.misc import strict_match_mime_type
@@ -121,6 +121,14 @@ async def process_uploaded_file(
         try:
             content_type = file.content_type
 
+            # Cooperative cancellation: if the user cancelled before this
+            # background task started, drop any partial vectors and stop so
+            # the file is neither embedded nor re-linked to the knowledge base.
+            if await embedding_cancelled(file_item.id):
+                log.info(f'File {file_item.id} cancelled before processing, skipping')
+                await cleanup_cancelled_embedding(file_metadata.get('collection_name'), file_item.id)
+                return
+
             # Detect mis-labeled text files (e.g. .ts → video/mp2t)
             if content_type and content_type.startswith(('image/', 'video/')):
                 if _is_text_file(file_path):
@@ -181,6 +189,13 @@ async def process_uploaded_file(
             knowledge_id = file_metadata.get('knowledge_id')
             if knowledge_id:
                 try:
+                    # Cooperative cancellation: if the user cancelled during
+                    # processing, skip the auto-link block so the file is not
+                    # re-linked to the knowledge base.
+                    if await embedding_cancelled(file_item.id):
+                        log.info(f'File {file_item.id} cancelled during processing, skipping auto-link')
+                        return
+
                     # Gate like POST /knowledge/{id}/file/add: a client-supplied
                     # metadata.knowledge_id must not let a non-writer attach files (CWE-862/863).
                     knowledge = await Knowledges.get_knowledge_by_id(id=knowledge_id, db=db_session)

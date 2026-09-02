@@ -1806,6 +1806,35 @@ class ProcessFileForm(BaseModel):
     collection_name: str | None = None
 
 
+async def embedding_cancelled(file_id: str) -> bool:
+    """Report whether an in-flight embedding job was cancelled.
+
+    Always reads through a fresh session (``db=None``) so a concurrent cancel
+    request is visible even while the caller holds an open transaction.
+    """
+    current = await Files.get_file_by_id(file_id)
+    if current is None:
+        return True
+    return (current.data or {}).get('status') == 'cancelled'
+
+
+async def cleanup_cancelled_embedding(collection_name: str | None, file_id: str) -> None:
+    """Drop vectors written for a file whose embedding was cancelled.
+
+    A per-file collection is removed wholesale; a shared knowledge-base
+    collection only loses the chunks belonging to this file.
+    """
+    try:
+        per_file_collection = f'file-{file_id}'
+        if not collection_name or collection_name == per_file_collection:
+            if await ASYNC_VECTOR_DB_CLIENT.has_collection(collection_name=per_file_collection):
+                await ASYNC_VECTOR_DB_CLIENT.delete_collection(collection_name=per_file_collection)
+        else:
+            await ASYNC_VECTOR_DB_CLIENT.delete(collection_name=collection_name, filter={'file_id': file_id})
+    except Exception as e:
+        log.debug(f'Could not clean up vectors for cancelled file {file_id}: {e}')
+
+
 @router.post('/process/file')
 async def process_file(
     request: Request,
@@ -1819,6 +1848,11 @@ async def process_file(
     Note: granular session management is used to prevent connection pool exhaustion.
     The session is committed before external API calls, and updates use a fresh session.
     """
+    if await embedding_cancelled(form_data.file_id):
+        log.info(f'File {form_data.file_id} has been cancelled, skipping processing')
+        await cleanup_cancelled_embedding(form_data.collection_name, form_data.file_id)
+        return {'status': False, 'filename': form_data.file_id}
+
     config = await get_retrieval_config()
     if user.role == 'admin':
         file = await Files.get_file_by_id(form_data.file_id, db=db)
@@ -1965,6 +1999,19 @@ async def process_file(
                     # Note: file is already a Pydantic model (not ORM), so no expunge needed.
                     await db.commit()
 
+                    # Cooperative cancellation: re-read the file status from a
+                    # fresh session so a concurrent cancel request is honoured
+                    # before the slow embedding call.
+                    if await embedding_cancelled(file.id):
+                        log.info(f'File {file.id} cancelled before embedding, cleaning up')
+                        await cleanup_cancelled_embedding(collection_name, file.id)
+                        return {
+                            'status': False,
+                            'collection_name': collection_name,
+                            'filename': file.filename,
+                            'content': text_content,
+                        }
+
                     # External embedding API takes time (5-60s+).
                     # Subsequent updates use fresh async sessions.
                     # NOTE: save_docs_to_vector_db is a sync function that
@@ -1986,6 +2033,20 @@ async def process_file(
                         user=user,
                     )
                     log.info(f'added {len(docs)} items to collection {collection_name}')
+
+                    # The embedding step above can run for a while. If the user
+                    # cancelled during it, drop the freshly written vectors and
+                    # stop here so the file is not marked completed (which would
+                    # resurrect it in the knowledge base listing).
+                    if await embedding_cancelled(file.id):
+                        log.info(f'File {file.id} cancelled during embedding, cleaning up')
+                        await cleanup_cancelled_embedding(collection_name, file.id)
+                        return {
+                            'status': False,
+                            'collection_name': collection_name,
+                            'filename': file.filename,
+                            'content': text_content,
+                        }
 
                     if result:
                         # Fresh session for the final update.
