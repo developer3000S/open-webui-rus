@@ -216,7 +216,7 @@
 									type="button"
 									class="select-none flex rounded-xl py-1.5 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 transition items-center gap-2 text-sm text-red-500 dark:text-red-400"
 									on:click={() => {
-										onCancelEmbedding(file?.id ?? file?.tempId);
+										onCancelEmbedding(file?.id ?? file?.itemId ?? file?.tempId);
 									}}
 								>
 									<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-3.5">

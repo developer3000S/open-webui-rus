@@ -1351,6 +1351,7 @@ async def cancel_pending_knowledge_file(
     # Signal cancellation through the file status, then remove the record.
     # The in-flight processing pipeline (BackgroundTasks) re-reads the file at
     # its checkpoints and aborts once it sees 'cancelled' or a missing record.
+    await Knowledges.remove_file_from_knowledge_by_id(id, form_data.file_id, db=db)
     await Files.update_file_data_by_id(form_data.file_id, {'status': 'cancelled'}, db=db)
     await Files.delete_file_by_id(form_data.file_id, db=db)
 

@@ -158,6 +158,10 @@
 
 	const reset = () => {
 		currentPage = 1;
+		if (pendingPollTimer) {
+			clearInterval(pendingPollTimer);
+			pendingPollTimer = null;
+		}
 	};
 
 	const init = async () => {
@@ -199,6 +203,12 @@
 			direction = null;
 		}
 
+		// Clear any pending poll timer to prevent batch cancellation
+		if (pendingPollTimer) {
+			clearInterval(pendingPollTimer);
+			pendingPollTimer = null;
+		}
+
 		const res = await searchKnowledgeFilesById(
 			localStorage.token,
 			knowledge.id,
@@ -214,7 +224,7 @@
 		});
 
 		if (res) {
-			fileItems = res.items;
+			fileItems = res.items.filter(item => item.data?.status !== 'cancelled');
 			fileItemsTotal = res.total;
 			directoryItems = res.directories ?? [];
 			breadcrumbs = res.breadcrumbs ?? [];
@@ -907,6 +917,11 @@
 			const res = await cancelFileEmbedding(localStorage.token, id, pendingCancelFileId);
 			if (res?.cancelled) {
 				toast.success($i18n.t('Embedding cancelled.'));
+				fileItems = fileItems.filter(item => item.id !== pendingCancelFileId);
+				if (pendingPollTimer) {
+					clearInterval(pendingPollTimer);
+					pendingPollTimer = null;
+				}
 				getItemsPage();
 			} else {
 				toast.error($i18n.t('Failed to cancel embedding.'));

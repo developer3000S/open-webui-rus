@@ -1809,13 +1809,15 @@ class ProcessFileForm(BaseModel):
 async def embedding_cancelled(file_id: str) -> bool:
     """Report whether an in-flight embedding job was cancelled.
 
-    Always reads through a fresh session (``db=None``) so a concurrent cancel
-    request is visible even while the caller holds an open transaction.
+    Reads through a fresh session so a concurrent cancel request is visible
+    even while the caller holds an open transaction.  An unreadable file state
+    (transient database error) is reported as *not* cancelled, so one user's
+    cancellation can never abort another file's embedding job.
     """
-    current = await Files.get_file_by_id(file_id)
-    if current is None:
-        return True
-    return (current.data or {}).get('status') == 'cancelled'
+    try:
+        return bool(await Files.get_embedding_cancellation(file_id))
+    except Exception:
+        return False
 
 
 async def cleanup_cancelled_embedding(collection_name: str | None, file_id: str) -> None:

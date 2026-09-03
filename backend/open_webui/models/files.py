@@ -405,6 +405,23 @@ class FilesTable:
             except Exception:
                 return None
 
+    async def get_embedding_cancellation(self, id: str) -> bool | None:
+        """Tri-state cancellation probe for an in-flight embedding job.
+
+        Returns ``True`` when the file was cancelled (status set or record
+        removed), ``False`` while it is still active, and ``None`` when its
+        state could not be read.  Callers must treat ``None`` as "not
+        cancelled": ``get_file_by_id`` swallows database errors into ``None``,
+        so a transient read failure under concurrent load must never be
+        mistaken for a user cancellation.
+        """
+        async with get_async_db_context(None) as db:
+            result = await db.execute(select(File.data).filter_by(id=id))
+            row = result.scalars().first()
+            if row is None:
+                return True
+            return (row or {}).get('status') == 'cancelled'
+
     async def get_pending_files_for_knowledge(
         self, knowledge_id: str, db: AsyncSession | None = None
     ) -> list[FileModelResponse]:
