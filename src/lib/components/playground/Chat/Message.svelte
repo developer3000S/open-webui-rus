@@ -47,7 +47,7 @@
 				// e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
 			}}
 			bind:value={message.content}
-		/>
+		></textarea>
 	</div>
 
 	<div class=" pt-1">

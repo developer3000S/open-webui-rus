@@ -869,7 +869,7 @@
 								rows="6"
 								placeholder={`e.g. {"model": "my-modelfile", "from": "ollama:7b"})`}
 								disabled={createModelLoading}
-							/>
+							></textarea>
 						</div>
 
 						<div class="flex self-start">
@@ -1080,7 +1080,7 @@
 										bind:value={modelFileContent}
 										class="w-full rounded-lg py-2 px-4 text-sm bg-gray-50 dark:text-gray-100 dark:bg-gray-850 outline-hidden resize-none"
 										rows="6"
-									/>
+									></textarea>
 								</div>
 							</div>
 						{/if}

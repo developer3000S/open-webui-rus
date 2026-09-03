@@ -332,7 +332,7 @@
 														autocomplete="off"
 														id="input-variable-{idx}"
 														required={variables[variable]?.required ?? false}
-													/>
+													></textarea>
 												{/if}
 											</div>
 										</div>

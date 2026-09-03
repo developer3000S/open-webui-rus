@@ -222,7 +222,7 @@
 			placeholder={$i18n.t('Feel free to add specific details')}
 			aria-label={$i18n.t('Additional feedback comments')}
 			rows="3"
-		/>
+		></textarea>
 	</div>
 
 	<div class="mt-2 gap-1.5 flex justify-between">

@@ -307,7 +307,7 @@
 							bind:value={prompt}
 							on:input={markDirty}
 							placeholder={$i18n.t('Enter the prompt instructions for this automation...')}
-						/>
+						></textarea>
 					</div>
 				</div>
 			</div>

@@ -155,7 +155,7 @@
 								placeholder={$i18n.t('Prompt')}
 								rows="2"
 								bind:value={prompt.content}
-							/>
+							></textarea>
 						</Tooltip>
 					</div>
 
