@@ -76,18 +76,18 @@ export const updateRAGConfig = async (token: string, payload: RAGConfigForm) => 
 		})
 	})
 		.then(async (res) => {
-			if (!res.ok) throw await res.json();
+			if (!res.ok) {
+				const errorData = await res.json();
+				error = errorData.detail || 'Failed to update RAG configuration';
+				throw new Error(error);
+			}
 			return res.json();
 		})
 		.catch((err) => {
-			console.error(err);
-			error = err.detail;
-			return null;
+			console.error('Error updating RAG config:', err);
+			error = err.message || 'Failed to update RAG configuration';
+			throw error;
 		});
-
-	if (error) {
-		throw error;
-	}
 
 	return res;
 };
@@ -471,6 +471,7 @@ export const queryCollection = async (
 		})
 		.catch((err) => {
 			error = err.detail;
+			console.error(err);
 			return null;
 		});
 

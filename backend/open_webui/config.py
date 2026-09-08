@@ -160,6 +160,10 @@ GOOGLE_APPLICATION_CREDENTIALS_JSON = os.getenv('GOOGLE_APPLICATION_CREDENTIALS_
 AZURE_STORAGE_ENDPOINT = os.getenv('AZURE_STORAGE_ENDPOINT', None)
 AZURE_STORAGE_CONTAINER_NAME = os.getenv('AZURE_STORAGE_CONTAINER_NAME', None)
 AZURE_STORAGE_KEY = os.getenv('AZURE_STORAGE_KEY', None)
+# Neo4j connection settings
+NEO4J_URI = os.getenv('NEO4J_URI', None)
+NEO4J_USER = os.getenv('NEO4J_USER', None)
+NEO4J_PASSWORD = os.getenv('NEO4J_PASSWORD', None)
 
 ####################################
 # File Upload DIR

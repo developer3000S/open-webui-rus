@@ -166,6 +166,7 @@ from open_webui.routers import (
     tools,
     users,
     utils,
+    classify,
 )
 from open_webui.routers.retrieval import (
     get_ef,
@@ -765,6 +766,7 @@ app.include_router(evaluations.router, prefix='/api/v1/evaluations', tags=['eval
 if ENABLE_ADMIN_ANALYTICS:
     app.include_router(analytics.router, prefix='/api/v1/analytics', tags=['analytics'])
 app.include_router(utils.router, prefix='/api/v1/utils', tags=['utils'])
+app.include_router(classify.router, prefix='/api/v1/classify', tags=['classify'])
 app.include_router(terminals.router, prefix='/api/v1/terminals', tags=['terminals'])
 app.include_router(automations.router, prefix='/api/v1/automations', tags=['automations'])
 app.include_router(calendar.router, prefix='/api/v1/calendars', tags=['calendars'])

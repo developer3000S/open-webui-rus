@@ -196,6 +196,55 @@
 		value = '';
 		dispatch('input');
 	};
+
+	let searchError = null;
+	let chatListLoading = false;
+
+	const searchHandler = async () => {
+		if (!show) {
+			return;
+		}
+
+		if (searchDebounceTimeout) {
+			clearTimeout(searchDebounceTimeout);
+		}
+
+		chatListLoading = true;
+		searchError = null;
+		page = 1;
+		chatList = null;
+
+		try {
+			if (query === '') {
+				chatList = await getChatList(localStorage.token, page);
+			} else {
+				searchDebounceTimeout = setTimeout(async () => {
+					try {
+						chatList = await getChatListBySearchText(localStorage.token, query, page);
+						if ((chatList ?? []).length === 0) {
+							allChatsLoaded = true;
+						} else {
+							allChatsLoaded = false;
+						}
+					} catch (error) {
+						searchError = error.message || $i18n.t('Failed to load search results');
+						console.error('Search error:', error);
+					} finally {
+						chatListLoading = false;
+					}
+				}, 500);
+			}
+		} catch (error) {
+			searchError = error.message || $i18n.t('An error occurred during search');
+			console.error('Search error:', error);
+			chatListLoading = false;
+		}
+
+		selectedChat = null;
+		messages = null;
+		history = null;
+		selectedModels = [''];
+	};
 </script>
 
 <div class="px-1 mb-1 flex justify-center space-x-2 relative z-10" id="search-container">

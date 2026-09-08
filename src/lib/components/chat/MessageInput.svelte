@@ -1330,6 +1330,7 @@
 						<button
 							id="generate-message-pair-button"
 							class="hidden"
+							aria-label="Generate message pair"
 							on:click={() => createMessagePair(prompt)}
 						></button>
 

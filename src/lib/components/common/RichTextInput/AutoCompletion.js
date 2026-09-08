@@ -14,23 +14,10 @@ Intelligently reset suggestions on new input.
 import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from 'prosemirror-state';
 
-interface AIAutocompletionOptions {
-	generateCompletion: (prompt: string) => Promise<string>;
-	debounceTime: number;
-}
-
-interface AIAutocompletionStorage {
-	debounceTimer: NodeJS.Timeout | null;
-	loading: boolean;
-	touchStartX: number;
-	touchStartY: number;
-	isComposing: boolean;
-}
-
 export const AIAutocompletion = Extension.create({
 	name: 'aiAutocompletion',
 
-	addOptions(): AIAutocompletionOptions {
+	addOptions() {
 		return {
 			generateCompletion: () => Promise.resolve(''),
 			debounceTime: 1000
@@ -44,24 +31,24 @@ export const AIAutocompletion = Extension.create({
 				attributes: {
 					class: {
 						default: null,
-						parseHTML: (element: HTMLElement) => element.getAttribute('class'),
-						renderHTML: (attributes: Record<string, any>) => {
+						parseHTML: (element) => element.getAttribute('class'),
+						renderHTML: (attributes) => {
 							if (!attributes.class) return {};
 							return { class: attributes.class };
 						}
 					},
 					'data-prompt': {
 						default: null,
-						parseHTML: (element: HTMLElement) => element.getAttribute('data-prompt'),
-						renderHTML: (attributes: Record<string, any>) => {
+						parseHTML: (element) => element.getAttribute('data-prompt'),
+						renderHTML: (attributes) => {
 							if (!attributes['data-prompt']) return {};
 							return { 'data-prompt': attributes['data-prompt'] };
 						}
 					},
 					'data-suggestion': {
 						default: null,
-						parseHTML: (element: HTMLElement) => element.getAttribute('data-suggestion'),
-						renderHTML: (attributes: Record<string, any>) => {
+						parseHTML: (element) => element.getAttribute('data-suggestion'),
+						renderHTML: (attributes) => {
 							if (!attributes['data-suggestion']) return {};
 							return { 'data-suggestion': attributes['data-suggestion'] };
 						}
@@ -72,15 +59,15 @@ export const AIAutocompletion = Extension.create({
 	},
 
 	addProseMirrorPlugins() {
-		const storage: AIAutocompletionStorage = {
-			debounceTimer: null,
-			loading: false,
-			touchStartX: 0,
-			touchStartY: 0,
-			isComposing: false
-		};
+		let debounceTimer = null;
+		let loading = false;
 
-		const handleAICompletion = (view: any) => {
+		let touchStartX = 0;
+		let touchStartY = 0;
+
+		let isComposing = false;
+
+		const handleAICompletion = (view) => {
 			const { state, dispatch } = view;
 			const { selection } = state;
 			const { $head } = selection;
@@ -89,13 +76,13 @@ export const AIAutocompletion = Extension.create({
 			if (selection.empty && $head.pos === $head.end()) {
 				// Set up debounce for AI generation
 				if (this.options.debounceTime !== null) {
-					clearTimeout(storage.debounceTimer);
+					clearTimeout(debounceTimer);
 
 					// Capture current position
 					const currentPos = $head.before();
 
-					storage.debounceTimer = setTimeout(() => {
-						if (storage.isComposing) return false;
+					debounceTimer = setTimeout(() => {
+						if (isComposing) return false;
 
 						const newState = view.state;
 						const newSelection = newState.selection;
@@ -111,11 +98,11 @@ export const AIAutocompletion = Extension.create({
 							const prompt = newNode.textContent;
 
 							if (prompt.trim() !== '') {
-								if (storage.loading) return true;
-								storage.loading = true;
+								if (loading) return true;
+								loading = true;
 								this.options
 									.generateCompletion(prompt)
-									.then((suggestion: string) => {
+									.then((suggestion) => {
 										if (suggestion && suggestion.trim() !== '') {
 											if (view.state.selection.$head.pos === view.state.selection.$head.end()) {
 												if (view.state === newState) {
@@ -126,20 +113,20 @@ export const AIAutocompletion = Extension.create({
 															'data-prompt': prompt,
 															'data-suggestion': suggestion
 														})
-													);
+													)
 												}
 											}
 										}
 									})
-									.catch((error: Error) => {
+									.catch((error) => {
 										console.error('Error generating completion:', error);
 									})
 									.finally(() => {
-										storage.loading = false;
+										loading = false;
 									});
 							}
 						}
-					}, this.options.debounceTime);
+					});
 				}
 			}
 		};
@@ -148,7 +135,7 @@ export const AIAutocompletion = Extension.create({
 			new Plugin({
 				key: new PluginKey('aiAutocompletion'),
 				props: {
-					handleKeyDown: (view: any, event: KeyboardEvent) => {
+					handleKeyDown: (view, event) => {
 						const { state, dispatch } = view;
 						const { selection } = state;
 						const { $head } = selection;
@@ -210,25 +197,25 @@ export const AIAutocompletion = Extension.create({
 					},
 					handleDOMEvents: {
 						compositionstart: () => {
-							storage.isComposing = true;
+							isComposing = true;
 							return false;
 						},
-						compositionend: (view: any) => {
-							storage.isComposing = false;
+						compositionend: (view) => {
+							isComposing = false;
 							handleAICompletion(view);
 							return false;
 						},
-						touchstart: (view: any, event: TouchEvent) => {
-							storage.touchStartX = event.touches[0].clientX;
-							storage.touchStartY = event.touches[0].clientY;
+						touchstart: (view, event) => {
+							touchStartX = event.touches[0].clientX;
+							touchStartY = event.touches[0].clientY;
 							return false;
 						},
-						touchend: (view: any, event: TouchEvent) => {
+						touchend: (view, event) => {
 							const touchEndX = event.changedTouches[0].clientX;
 							const touchEndY = event.changedTouches[0].clientY;
 
-							const deltaX = touchEndX - storage.touchStartX;
-							const deltaY = touchEndY - storage.touchStartY;
+							const deltaX = touchEndX - touchStartX;
+							const deltaY = touchEndY - touchStartY;
 
 							// Check if the swipe was primarily horizontal and to the right
 							if (Math.abs(deltaX) > Math.abs(deltaY) && deltaX > 50) {
@@ -252,43 +239,15 @@ export const AIAutocompletion = Extension.create({
 							}
 							return false;
 						},
-						// Add mousedown behavior
-						// mouseup: (view, event) => {
-						// 	const { state, dispatch } = view;
-						// 	const { selection } = state;
-						// 	const { $head } = selection;
-						// 	const node = $head.parent;
-
-						// 	// Reset debounce timer on mouse click
-						// 	clearTimeout(debounceTimer);
-
-						// 	// If a suggestion exists and the cursor moves, remove the suggestion
-						// 	if (
-						// 		node.type.name === 'paragraph' &&
-						// 		node.attrs['data-suggestion'] &&
-						// 		view.state.selection.$head.pos !== view.state.selection.$head.end()
-						// 	) {
-						// 		dispatch(
-						// 			state.tr.setNodeMarkup($head.before(), null, {
-						// 				...node.attrs,
-						// 				class: null,
-						// 				'data-prompt': null,
-						// 				'data-suggestion': null
-						// 			})
-						// 		);
-						// 	}
-
-						// 	return false;
-						// }
-						mouseup: (view: any, event: MouseEvent) => {
+						mouseup: (view, event) => {
 							const { state, dispatch } = view;
 
 							// Reset debounce timer on mouse click
-							clearTimeout(storage.debounceTimer);
+							clearTimeout(debounceTimer);
 
 							// Iterate over all nodes in the document
 							const tr = state.tr;
-							state.doc.descendants((node: any, pos: number) => {
+							state.doc.descendants((node, pos) => {
 								if (node.type.name === 'paragraph' && node.attrs['data-suggestion']) {
 									// Remove suggestion from this paragraph
 									tr.setNodeMarkup(pos, null, {

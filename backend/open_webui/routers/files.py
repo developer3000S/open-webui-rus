@@ -183,7 +183,7 @@ async def process_uploaded_file(
                     db=db_session,
                 )
 
-            # Auto-link to Knowledge Collection when uploaded from one (#24807).
+            
             # Mirrors POST /knowledge/{id}/file/add so linking doesn't depend
             # on the frontend staying connected after upload.
             knowledge_id = file_metadata.get('knowledge_id')

@@ -383,18 +383,24 @@
 			clearTimeout(searchDebounceTimeout);
 		}
 
+		chatListLoading = true;
 		page = 1;
 		chatList = null;
 		if (query === '') {
 			chatList = await getChatList(localStorage.token, page);
 		} else {
 			searchDebounceTimeout = setTimeout(async () => {
-				chatList = await getChatListBySearchText(localStorage.token, query, page);
-
-				if ((chatList ?? []).length === 0) {
-					allChatsLoaded = true;
-				} else {
-					allChatsLoaded = false;
+				try {
+					chatList = await getChatListBySearchText(localStorage.token, query, page);
+					if ((chatList ?? []).length === 0) {
+						allChatsLoaded = true;
+					} else {
+						allChatsLoaded = false;
+					}
+				} catch (error) {
+					toast.error($i18n.t('Failed to load search results'));
+				} finally {
+					chatListLoading = false;
 				}
 			}, 500);
 		}

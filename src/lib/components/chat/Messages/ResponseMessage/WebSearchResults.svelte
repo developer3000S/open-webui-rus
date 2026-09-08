@@ -6,6 +6,37 @@
 
 	export let status = { urls: [], query: '' };
 	let state = false;
+
+	let searchError = null;
+	let loading = false;
+
+	const loadResults = async () => {
+		loading = true;
+		searchError = null;
+		try {
+			// In a real implementation, you would call an API here
+			const response = await fetch('/api/search', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({ query: status.query }),
+			});
+			if (!response.ok) {
+				throw new Error('Failed to load search results');
+			}
+			const data = await response.json();
+			status.items = data.items;
+		} catch (error) {
+			searchError = error.message || 'Failed to load search results';
+		} finally {
+			loading = false;
+		}
+	};
+
+	$: if (status?.query || status?.urls?.length > 0) {
+		loadResults();
+	}
 </script>
 
 <Collapsible grow={true} className="w-full" buttonClassName="w-full" bind:open={state}>
@@ -22,7 +53,15 @@
 		class="text-sm border border-gray-50 dark:border-gray-850/30 rounded-xl my-1.5 p-2 w-full"
 		slot="content"
 	>
-		{#if status?.query}
+		{#if loading}
+			<div class="flex justify-center py-4">
+				<div class="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900 dark:border-white"></div>
+			</div>
+		{:else if searchError}
+			<div class="text-red-500 text-sm p-2 bg-red-50 dark:bg-red-900/20 rounded">
+				{searchError}
+			</div>
+		{:else if status?.query}
 			<a
 				href="https://www.google.com/search?q={status.query}"
 				target="_blank"
