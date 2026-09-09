@@ -58,6 +58,7 @@ docker run -d \
   -p "${HOST_PORT}:${CONTAINER_PORT}" \
   --add-host=host.docker.internal:host-gateway \
   -v "${VOLUME}:/app/backend/data" \
+  --ulimit nofile=65536:524288 \
   --name "$CONTAINER" \
   --restart always \
   "$IMAGE"

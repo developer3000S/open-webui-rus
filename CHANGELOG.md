@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- 📊 **Upload progress bar for knowledge bases.** Each document being added to a knowledge base now shows an accurate progress bar under its name. The first half tracks real upload bytes (switched to `XMLHttpRequest`, which reports request-body progress that `fetch` cannot), and the second half reflects server-side embedding progress streamed over SSE, including an "Embedding N/M chunks" count. Progress keeps advancing across browser tabs and page reloads via a pending-files poll, and never reshuffles the file list while it updates.
 - 🚫 **Embedding cancellation in knowledge bases.** Files that are pending or processing in a knowledge base can now be cancelled from the file list ("Cancel embedding"), and knowledge-base folders can be listed and navigated when uploading.
 
 ### Fixed

@@ -26,7 +26,9 @@
 		uploadFile,
 		deleteFileById,
 		getFileById,
-		renameFileById
+		renameFileById,
+		serverProgressToFileProgress,
+		type FileProgress
 	} from '$lib/apis/files';
 	import {
 		addFileToKnowledgeById,
@@ -196,6 +198,15 @@
 	const getItemsPage = async () => {
 		if (knowledgeId === null) return;
 
+		// A refresh would otherwise wipe the live progress of uploads that are
+		// still streaming from this browser tab, because `fileItems` is rebuilt
+		// from the server payload which only carries progress at half-bar granularity.
+		const liveProgress = new Map(
+			(fileItems ?? [])
+				.filter((item) => item?.id && item?.progress)
+				.map((item) => [item.id, item.progress])
+		);
+
 		fileItems = null;
 		fileItemsTotal = null;
 
@@ -224,7 +235,12 @@
 		});
 
 		if (res) {
-			fileItems = res.items.filter(item => item.data?.status !== 'cancelled');
+			fileItems = res.items
+				.filter((item) => item.data?.status !== 'cancelled')
+				.map((item) => {
+					const progress = liveProgress.get(item.id);
+					return progress ? { ...item, progress } : item;
+				});
 			fileItemsTotal = res.total;
 			directoryItems = res.directories ?? [];
 			breadcrumbs = res.breadcrumbs ?? [];
@@ -239,7 +255,8 @@
 						.map((f) => ({
 							...f,
 							name: f.meta?.name ?? f.filename,
-							status: 'uploading'
+							status: 'uploading',
+							progress: liveProgress.get(f.id) ?? serverProgressToFileProgress(f.data?.progress)
 						}));
 					if (newPending.length > 0) {
 						fileItems = [...newPending, ...fileItems];
@@ -253,9 +270,21 @@
 										clearInterval(pendingPollTimer);
 										pendingPollTimer = null;
 										init();
+									} else {
+										// Pick up server-side embedding progress for rows this tab is
+										// not streaming itself (another tab, a reloaded page).
+										const progressById = new Map(
+											still.map((f) => [f.id, serverProgressToFileProgress(f.data?.progress)])
+										);
+										fileItems = (fileItems ?? []).map((item) => {
+											if (progressById.has(item.id)) {
+												return { ...item, progress: progressById.get(item.id) };
+											}
+											return item;
+										});
 									}
 								} catch {}
-							}, 5000);
+							}, 2000);
 						}
 					}
 				}
@@ -412,6 +441,7 @@
 			size: file.size,
 			status: 'uploading',
 			error: '',
+			progress: null as FileProgress | null,
 			itemId: uuidv4()
 		};
 
@@ -450,7 +480,17 @@
 					: {})
 			};
 
-			const uploadedFile = await uploadFile(localStorage.token, file, metadata).catch((e) => {
+			const uploadedFile = await uploadFile(
+				localStorage.token,
+				file,
+				metadata,
+				undefined,
+				true,
+				(progress) => {
+					fileItem.progress = progress;
+					fileItems = fileItems.map((item) => (item.itemId === fileItem.itemId ? { ...item } : item));
+				}
+			).catch((e) => {
 				toast.error(`${e}`);
 				return null;
 			});

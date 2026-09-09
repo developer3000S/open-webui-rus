@@ -30,6 +30,12 @@ services:
       - 'FORWARDED_ALLOW_IPS=*'
     extra_hosts:
       - host.docker.internal:host-gateway
+    # Default soft nofile of 1024 in the container exhausts descriptors during
+    # large-document embedding ("Too many open files"). Hard limit is 524288.
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 524288
     restart: unless-stopped
 
 

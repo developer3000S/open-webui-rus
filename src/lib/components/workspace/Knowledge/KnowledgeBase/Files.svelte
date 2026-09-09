@@ -60,6 +60,29 @@
 	const cancelRename = () => {
 		editingFileId = null;
 	};
+
+	const isInFlight = (file: any) =>
+		file?.status === 'uploading' || file?.status === 'processing' || file?.status === 'pending';
+
+	const progressPercent = (file: any) => {
+		const percent = file?.progress?.percent;
+		if (typeof percent !== 'number' || Number.isNaN(percent)) return null;
+		return Math.max(0, Math.min(100, Math.round(percent * 100)));
+	};
+
+	const progressLabel = (file: any) => {
+		const progress = file?.progress;
+		// The server labels its phase 'embedding'; anything that reports chunk counts
+		// is past the transfer stage and worth showing as granular progress.
+		if (progress?.total_chunks) {
+			return $i18n.t('Embedding {{processed}}/{{total}} chunks', {
+				processed: progress.processed_chunks ?? 0,
+				total: progress.total_chunks
+			});
+		}
+		if (progress?.phase === 'uploading') return $i18n.t('Uploading...');
+		return $i18n.t('Processing...');
+	};
 </script>
 
 <div class=" max-h-full flex flex-col w-full gap-[0.5px]">
@@ -147,6 +170,22 @@
 							</div>
 						{/if}
 					</div>
+
+					{#if isInFlight(file)}
+						{@const percent = progressPercent(file)}
+						<div class="flex items-center gap-2 pt-1">
+							<div class="flex-1 min-w-[50px] h-1 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
+								<div
+									class="h-full rounded-full bg-gray-700 dark:bg-gray-300 transition-all duration-300"
+									style="width: {percent ?? 0}%"
+								></div>
+							</div>
+							<div class="text-[10px] text-gray-500 dark:text-gray-400 shrink-0">
+								{progressLabel(file)}
+								{#if percent !== null}<span class="ml-1">{percent}%</span>{/if}
+							</div>
+						</div>
+					{/if}
 				</div>
 
 				<div class="flex items-center gap-2 shrink-0">

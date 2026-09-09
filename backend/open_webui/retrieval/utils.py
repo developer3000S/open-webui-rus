@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import inspect
 import logging
 import os
 import re
@@ -24,6 +25,9 @@ from open_webui.config import (
     RAG_EMBEDDING_PREFIX_FIELD_NAME,
     RAG_EMBEDDING_QUERY_PREFIX,
     VECTOR_DB,
+    EMBEDDING_MAX_CONNECTIONS,
+    EMBEDDING_MAX_RETRIES,
+    EMBEDDING_RETRY_BASE_DELAY,
 )
 from open_webui.env import (
     AIOHTTP_CLIENT_ALLOW_REDIRECTS,
@@ -58,6 +62,15 @@ from typing import Any
 
 from langchain_core.callbacks import CallbackManagerForRetrieverRun
 from langchain_core.retrievers import BaseRetriever
+
+
+class TransientEmbeddingError(Exception):
+    """Raised when an embedding request failed due to a transient condition.
+
+    This is a safe-to-retry error: the request never reached the model, so
+    retrying is guaranteed to succeed if the condition clears.
+    """
+    pass
 
 
 def is_youtube_url(url: str) -> bool:
@@ -1051,23 +1064,62 @@ async def agenerate_ollama_batch_embeddings(
         headers = include_user_info_headers(headers, user)
 
     async with aiohttp.ClientSession(
-        trust_env=True, timeout=aiohttp.ClientTimeout(total=AIOHTTP_CLIENT_TIMEOUT)
+        trust_env=True,
+        timeout=aiohttp.ClientTimeout(total=AIOHTTP_CLIENT_TIMEOUT),
+        connector=aiohttp.TCPConnector(limit=EMBEDDING_MAX_CONNECTIONS),
     ) as session:
-        async with session.post(
-            f'{url}/api/embed',
-            headers=headers,
-            json=form_data,
-            ssl=AIOHTTP_CLIENT_SESSION_SSL,
-        ) as r:
-            if r.status != 200:
-                error_data = await r.json()
-                error_detail = error_data.get('error', str(error_data))
-                raise Exception(f'Ollama embed error ({r.status}): {error_detail}')
-            data = await r.json()
-            if 'embeddings' in data:
-                return data['embeddings']
-            else:
-                raise ValueError("Unexpected Ollama embeddings response: missing 'embeddings' key")
+        last_error = None
+        for attempt in range(EMBEDDING_MAX_RETRIES):
+            try:
+                async with session.post(
+                    f'{url}/api/embed',
+                    headers=headers,
+                    json=form_data,
+                    ssl=AIOHTTP_CLIENT_SESSION_SSL,
+                ) as r:
+                    if r.status == 503:
+                        # Ollama is busy or is unloading/reloading models; the
+                        # request never got processed, so it is safe to retry.
+                        raise TransientEmbeddingError(f'Ollama embed error ({r.status}): {await r.text()}')
+                    if r.status != 200:
+                        error_data = await r.json()
+                        error_detail = error_data.get('error', str(error_data))
+                        raise Exception(f'Ollama embed error ({r.status}): {error_detail}')
+                    data = await r.json()
+                    if 'embeddings' in data:
+                        return data['embeddings']
+                    else:
+                        raise ValueError("Unexpected Ollama embeddings response: missing 'embeddings' key")
+            except (
+                aiohttp.ServerDisconnectedError,
+                aiohttp.ClientConnectorError,
+                aiohttp.ClientOSError,
+                asyncio.TimeoutError,
+                TransientEmbeddingError,
+            ) as e:
+                last_error = e
+                if attempt < EMBEDDING_MAX_RETRIES - 1:
+                    delay = EMBEDDING_RETRY_BASE_DELAY * (2**attempt)
+                    log.warning(
+                        f'Transient Ollama embedding error (attempt {attempt + 1}/{EMBEDDING_MAX_RETRIES}): {e}. Retrying in {delay:.1f}s'
+                    )
+                    await asyncio.sleep(delay)
+        raise Exception(f'Ollama embedding failed after {EMBEDDING_MAX_RETRIES} attempts: {last_error}')
+
+
+async def _emit_progress(on_progress, processed: int, total: int) -> None:
+    """Hand a progress tick to the caller's hook, which may be sync or async.
+
+    A failing hook must never abort an embedding job, so errors are swallowed here.
+    """
+    if on_progress is None:
+        return
+    try:
+        result = on_progress(processed, total)
+        if inspect.isawaitable(result):
+            await result
+    except Exception:
+        log.debug('embedding progress callback failed', exc_info=True)
 
 
 def get_embedding_function(
@@ -1083,7 +1135,7 @@ def get_embedding_function(
 ) -> Awaitable:
     if embedding_engine == '':
         # Sentence transformers: CPU-bound sync operation
-        async def async_embedding_function(query, prefix=None, user=None):
+        async def async_embedding_function(query, prefix=None, user=None, on_progress=None):
             # Deferred so a missing local model degrades RAG instead of crashing boot.
             if embedding_function is None:
                 raise ValueError(
@@ -1091,17 +1143,26 @@ def get_embedding_function(
                     'SentenceTransformer model name, or configure an external '
                     'RAG_EMBEDDING_ENGINE (ollama, openai, azure_openai).'
                 )
-            return await asyncio.to_thread(
-                (
-                    lambda query, prefix=None: embedding_function.encode(
-                        query,
-                        batch_size=int(embedding_batch_size),
-                        **({'prompt': prefix} if prefix else {}),
-                    ).tolist()
-                ),
-                query,
-                prefix,
-            )
+
+            def encode(texts, prefix=None):
+                return embedding_function.encode(
+                    texts,
+                    batch_size=int(embedding_batch_size),
+                    **({'prompt': prefix} if prefix else {}),
+                ).tolist()
+
+            if not isinstance(query, list) or on_progress is None:
+                return await asyncio.to_thread(encode, query, prefix)
+
+            # `encode` already batches internally on `embedding_batch_size`, so slicing on the
+            # same size preserves throughput while making progress observable.
+            batch_size = max(int(embedding_batch_size), 1)
+            embeddings = []
+            for start in range(0, len(query), batch_size):
+                batch = query[start : start + batch_size]
+                embeddings.extend(await asyncio.to_thread(encode, batch, prefix))
+                await _emit_progress(on_progress, len(embeddings), len(query))
+            return embeddings
 
         return async_embedding_function
     elif embedding_engine in ['ollama', 'openai', 'azure_openai']:
@@ -1116,7 +1177,7 @@ def get_embedding_function(
             azure_api_version=azure_api_version,
         )
 
-        async def async_embedding_function(query, prefix=None, user=None):
+        async def async_embedding_function(query, prefix=None, user=None, on_progress=None):
             if isinstance(query, list):
                 # Create batches
                 batches = [query[i : i + embedding_batch_size] for i in range(0, len(query), embedding_batch_size)]
@@ -1132,15 +1193,36 @@ def get_embedding_function(
                             async with semaphore:
                                 return await embedding_function(batch, prefix=prefix, user=user)
 
-                        tasks = [generate_batch_with_semaphore(batch) for batch in batches]
+                        batch_coros = [generate_batch_with_semaphore(batch) for batch in batches]
                     else:
-                        tasks = [embedding_function(batch, prefix=prefix, user=user) for batch in batches]
-                    batch_results = await asyncio.gather(*tasks)
+                        batch_coros = [embedding_function(batch, prefix=prefix, user=user) for batch in batches]
+
+                    if on_progress is None:
+                        batch_results = await asyncio.gather(*batch_coros)
+                    else:
+                        # Results must stay aligned with the input order, so progress is counted
+                        # inside each batch instead of being read off a completion-ordered gather.
+                        total = len(query)
+                        processed = 0
+
+                        async def track(batch, coro):
+                            nonlocal processed
+                            result = await coro
+                            processed += len(batch)
+                            await _emit_progress(on_progress, min(processed, total), total)
+                            return result
+
+                        batch_results = await asyncio.gather(
+                            *[track(batch, coro) for batch, coro in zip(batches, batch_coros)]
+                        )
                 else:
                     log.debug(f'generate_multiple_async: Processing {len(batches)} batches sequentially')
                     batch_results = []
+                    processed = 0
                     for batch in batches:
                         batch_results.append(await embedding_function(batch, prefix=prefix, user=user))
+                        processed += len(batch)
+                        await _emit_progress(on_progress, min(processed, len(query)), len(query))
 
                 # Flatten results — raise if any batch failed
                 embeddings = []

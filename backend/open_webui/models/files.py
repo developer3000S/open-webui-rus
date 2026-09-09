@@ -14,6 +14,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 log = logging.getLogger(__name__)
 
+# Statuses that end a file's processing lifecycle.  Progress reporting stops there
+# so a late write cannot resurrect a stale bar on an already finished file.
+TERMINAL_FILE_STATUSES = frozenset({'completed', 'failed', 'cancelled'})
+
 
 class File(Base):  # uploaded file record
     __tablename__ = 'file'
@@ -379,6 +383,35 @@ class FilesTable:
                 return FileModel.model_validate(file)
             except Exception as e:
                 return None
+
+    async def update_file_progress_by_id(self, id: str, progress: dict, db: AsyncSession | None = None) -> bool:
+        """Record in-flight processing progress without touching ``updated_at``.
+
+        Progress ticks arrive every embedding batch.  Bumping ``updated_at`` on each
+        one would reshuffle the knowledge-base file list under the user, so this
+        writer deliberately leaves the timestamp alone.  Ticks are written from
+        detached tasks, so two guards keep the value trustworthy: an older, lower
+        percentage that lands late is dropped, and nothing is written once the file
+        reaches a terminal status, which would otherwise leave a finished file
+        advertising progress it no longer has.
+        """
+        async with get_async_db_context(db) as db:
+            try:
+                result = await db.execute(select(File).filter_by(id=id))
+                file = result.scalars().first()
+                if file is None:
+                    return False
+                data = file.data if file.data else {}
+                if (data.get('status') or '') in TERMINAL_FILE_STATUSES:
+                    return False
+                previous = data.get('progress')
+                if isinstance(previous, dict) and previous.get('percent', 0) > progress.get('percent', 0):
+                    return False
+                file.data = {**data, 'progress': progress}
+                await db.commit()
+                return True
+            except Exception:
+                return False
 
     async def update_file_metadata_by_id(self, id: str, meta: dict, db: AsyncSession | None = None) -> FileModel | None:
         async with get_async_db_context(db) as db:

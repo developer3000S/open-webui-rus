@@ -1,12 +1,34 @@
 import { WEBUI_API_BASE_URL } from '$lib/constants';
 import { splitStream } from '$lib/utils';
 
+export type FileProgress = {
+	phase?: string;
+	percent?: number;
+	processed_chunks?: number | null;
+	total_chunks?: number | null;
+};
+
+// Transfer and server-side processing each own half of the bar.
+const UPLOAD_SHARE = 0.5;
+
+/** Map a server-side processing tick onto the whole upload+processing bar. */
+export const serverProgressToFileProgress = (
+	progress: object | null | undefined
+): FileProgress | null => {
+	if (!progress || typeof progress !== 'object') {
+		return null;
+	}
+	const percent = (progress as FileProgress).percent ?? 0;
+	return { ...(progress as FileProgress), percent: UPLOAD_SHARE + UPLOAD_SHARE * percent };
+};
+
 export const uploadFile = async (
 	token: string,
 	file: File,
 	metadata?: object | null,
 	process?: boolean | null,
-	stream: boolean = true
+	stream: boolean = true,
+	onProgress?: ((progress: FileProgress) => void) | null
 ) => {
 	const data = new FormData();
 	data.append('file', file);
@@ -21,23 +43,86 @@ export const uploadFile = async (
 
 	let error = null;
 
-	const res = await fetch(`${WEBUI_API_BASE_URL}/files/?${searchParams.toString()}`, {
-		method: 'POST',
-		headers: {
-			Accept: 'application/json',
-			authorization: `Bearer ${token}`
-		},
-		body: data
-	})
-		.then(async (res) => {
-			if (!res.ok) throw await res.json();
-			return res.json();
-		})
-		.catch((err) => {
-			error = err.detail || err.message;
-			console.error(err);
-			return null;
+	// `fetch` exposes no request-body progress hook, so the byte-transfer phase needs XHR.
+	const uploadFileRequest = (
+		token: string,
+		body: FormData,
+		url: string,
+		onTransfer?: ((fraction: number) => void) | null
+	) =>
+		new Promise<any>((resolve, reject) => {
+			const xhr = new XMLHttpRequest();
+			xhr.open('POST', url);
+			xhr.setRequestHeader('Accept', 'application/json');
+			xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+
+			if (xhr.upload && onTransfer) {
+				xhr.upload.onprogress = (event) => {
+					if (event.lengthComputable && event.total > 0) {
+						onTransfer(event.loaded / event.total);
+					}
+				};
+			}
+
+			xhr.onload = () => {
+				let parsed = null;
+				try {
+					parsed = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+				} catch {
+					parsed = null;
+				}
+
+				if (xhr.status >= 200 && xhr.status < 300) {
+					resolve(parsed);
+				} else {
+					reject(parsed || new Error(`Upload failed with status ${xhr.status}`));
+				}
+			};
+
+			xhr.onerror = () => reject(new Error('Network error during upload'));
+			xhr.onabort = () => reject(new Error('Upload aborted'));
+
+			xhr.send(body);
 		});
+
+	let lastUploadPercent = -1;
+
+	const emit = (progress: FileProgress | null) => {
+		if (!progress) {
+			return;
+		}
+
+		// XHR fires transfer progress far more often than the UI can use, and rounding
+		// to half-percent steps drops the repeats.  Server ticks are already rate-limited
+		// and carry chunk counts, so they always pass through.
+		if (progress.phase === 'uploading') {
+			const percent = Math.round((progress.percent ?? 0) * 200) / 200;
+			if (percent === lastUploadPercent) {
+				return;
+			}
+			lastUploadPercent = percent;
+			progress = { ...progress, percent };
+		}
+
+		try {
+			onProgress?.(progress);
+		} catch (err) {
+			console.error(err);
+		}
+	};
+
+	emit({ phase: 'uploading', percent: 0 });
+
+	const res = await uploadFileRequest(
+		token,
+		data,
+		`${WEBUI_API_BASE_URL}/files/?${searchParams.toString()}`,
+		(fraction) => emit({ phase: 'uploading', percent: fraction * UPLOAD_SHARE })
+	).catch((err) => {
+		error = err?.detail || err?.message || err;
+		console.error(err);
+		return null;
+	});
 
 	if (error) {
 		throw error;
@@ -47,6 +132,8 @@ export const uploadFile = async (
 		const status = await getFileProcessStatus(token, res.id);
 
 		if (status && status.ok) {
+			emit({ phase: 'processing', percent: UPLOAD_SHARE, processed_chunks: 0, total_chunks: null });
+
 			const reader = status.body
 				.pipeThrough(new TextDecoderStream())
 				.pipeThrough(splitStream('\n'))
@@ -73,6 +160,10 @@ export const uploadFile = async (
 								if (data?.error) {
 									console.error(data.error);
 									res.error = data.error;
+								}
+
+								if (data?.progress) {
+									emit(serverProgressToFileProgress(data.progress));
 								}
 
 								if (res?.data) {

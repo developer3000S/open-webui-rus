@@ -413,6 +413,22 @@ class EventDefinitions(BaseModel):
     RETRIEVAL_UPLOADS_RESET: EventDefinition = EventDefinition(
         name='retrieval.uploads.reset', description='Retrieval uploads were reset.', message='Retrieval Uploads reset'
     )
+    # Embedding monitoring events
+    EMBEDDING_STARTED: EventDefinition = EventDefinition(
+        name='embedding.started',
+        description='Embedding process started for a file.',
+        message='Embedding started',
+    )
+    EMBEDDING_COMPLETED: EventDefinition = EventDefinition(
+        name='embedding.completed',
+        description='Embedding process completed for a file.',
+        message='Embedding completed',
+    )
+    EMBEDDING_FAILED: EventDefinition = EventDefinition(
+        name='embedding.failed',
+        description='Embedding process failed for a file.',
+        message='Embedding failed',
+    )
     MODEL_CREATED: EventDefinition = EventDefinition(
         name='model.created', description='A model was created.', message='Model created'
     )

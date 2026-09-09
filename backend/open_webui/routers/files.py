@@ -623,7 +623,7 @@ async def get_file_process_status(
                         status = data.get('status')
 
                         if status:
-                            event = {'status': status}
+                            event = {'status': status, 'progress': data.get('progress')}
                             if status == 'failed':
                                 event['error'] = data.get('error')
 
@@ -644,7 +644,10 @@ async def get_file_process_status(
                 media_type='text/event-stream',
             )
         else:
-            return {'status': file.data.get('status', 'pending')}
+            return {
+                'status': file.data.get('status', 'pending'),
+                'progress': file.data.get('progress'),
+            }
     else:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

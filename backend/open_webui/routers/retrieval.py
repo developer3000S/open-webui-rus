@@ -7,6 +7,7 @@ import mimetypes
 import os
 import re
 import shutil
+import time
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -1601,6 +1602,7 @@ def save_docs_to_vector_db(
     split: bool = True,
     add: bool = False,
     user=None,
+    on_progress: Callable[[str, float, dict], None] | None = None,
 ) -> bool:
     def _get_docs_info(docs: list[Document]) -> str:
         docs_info = set()
@@ -1720,6 +1722,26 @@ def save_docs_to_vector_db(
         for doc in docs
     ]
 
+    total_chunks = len(texts)
+
+    def _report(phase: str, percent: float, processed: int = 0) -> None:
+        if on_progress is None:
+            return
+        try:
+            on_progress(
+                phase,
+                max(0.0, min(percent, 1.0)),
+                {
+                    'processed_chunks': processed,
+                    'total_chunks': total_chunks,
+                },
+            )
+        except Exception:
+            # Progress is best-effort; it must never break the pipeline.
+            log.debug('embedding progress report failed', exc_info=True)
+
+    _report('embedding', 0.10)
+
     try:
         if VECTOR_DB_CLIENT.has_collection(collection_name=collection_name):
             log.info(f'collection {collection_name} already exists')
@@ -1766,11 +1788,16 @@ def save_docs_to_vector_db(
         # This allows the main loop to stay responsive to health checks during long operations
         embedding_timeout = RAG_EMBEDDING_TIMEOUT
 
+        def _on_embedding_progress(processed: int, total: int) -> None:
+            share = 0.80 if total else 1.0
+            _report('embedding', 0.10 + share * (processed / max(total, 1)), processed)
+
         future = asyncio.run_coroutine_threadsafe(
             embedding_function(
                 list(map(lambda x: x.replace('\n', ' '), texts)),
                 prefix=RAG_EMBEDDING_CONTENT_PREFIX,
                 user=user,
+                on_progress=_on_embedding_progress if on_progress else None,
             ),
             request.app.state.main_loop,
         )
@@ -1787,13 +1814,37 @@ def save_docs_to_vector_db(
             for idx, text in enumerate(texts)
         ]
 
+        # Validate embeddings and metadata before insertion
+        if not items:
+            raise ValueError('No items to insert')
+        expected_dim = len(items[0]['vector'])
+        if expected_dim == 0:
+            raise ValueError('Embedding dimension is 0')
+        for idx, item in enumerate(items):
+            vec = item['vector']
+            if not isinstance(vec, (list, tuple)):
+                raise ValueError(f'Invalid embedding for item {idx}: must be list/array')
+            if len(vec) != expected_dim:
+                raise ValueError(
+                    f'Embedding dimension mismatch for item {idx}: expected {expected_dim}, got {len(vec)}'
+                )
+            if any(not isinstance(x, (int, float)) or (x != x) for x in vec):
+                raise ValueError(f'Invalid embedding values for item {idx}: NaN/Inf or non-numeric')
+            meta = item['metadata']
+            if not isinstance(meta, dict):
+                raise ValueError(f'Invalid metadata for item {idx}: must be dict')
+            if 'file_id' not in meta:
+                raise ValueError(f'Missing file_id in metadata for item {idx}')
+
         log.info(f'adding to collection {collection_name}')
+        _report('embedding', 0.90)
         VECTOR_DB_CLIENT.insert(
             collection_name=collection_name,
             items=items,
         )
 
         log.info(f'added {len(items)} items to collection {collection_name}')
+        _report('embedding', 1.0, total_chunks)
         return True
     except Exception as e:
         log.exception(e)
@@ -1996,6 +2047,14 @@ async def process_file(
                     'content': text_content,
                 }
             else:
+                await publish_event(
+                    request,
+                    EVENTS.EMBEDDING_STARTED,
+                    actor=user,
+                    subject_id=file.id,
+                    subject_type='file',
+                    data={'filename': file.filename},
+                )
                 try:
                     # Commit any pending changes before the slow embedding step.
                     # Note: file is already a Pydantic model (not ORM), so no expunge needed.
@@ -2020,6 +2079,50 @@ async def process_file(
                     # calls asyncio.run_coroutine_threadsafe(..., main_loop).result()
                     # which blocks the calling thread.  We MUST run it in a
                     # worker thread to avoid deadlocking the event loop.
+                    main_loop = asyncio.get_running_loop()
+                    last_progress_write = {'at': 0.0}
+
+                    def report_progress(phase: str, percent: float, counts: dict) -> None:
+                        """Publish an embedding progress tick to the file record.
+
+                        Called from the embedding worker thread, so the write is scheduled
+                        back onto the main loop instead of blocking this thread on a lock.
+                        The caller in `save_docs_to_vector_db` already swallows exceptions
+                        from this callback, which is why nothing here may raise.
+                        """
+                        now = time.monotonic()
+                        # A full document can emit hundreds of ticks; cap the write rate so
+                        # progress reporting cannot saturate the database connection pool.
+                        if percent < 1.0 and (now - last_progress_write['at']) < 0.5:
+                            return
+                        last_progress_write['at'] = now
+
+                        progress = {
+                            'phase': phase,
+                            'percent': round(percent, 4),
+                            'processed_chunks': counts.get('processed_chunks'),
+                            'total_chunks': counts.get('total_chunks'),
+                            'updated_at': int(now),
+                        }
+
+                        async def write() -> None:
+                            try:
+                                await Files.update_file_progress_by_id(file.id, progress)
+                            except Exception:
+                                log.debug('failed to persist embedding progress', exc_info=True)
+
+                        try:
+                            asyncio.run_coroutine_threadsafe(write(), main_loop)
+                        except Exception:
+                            log.debug('failed to schedule embedding progress write', exc_info=True)
+
+                    # Transition to 'processing' and drop any progress left over from an
+                    # earlier run, which would otherwise pin the monotonic writer in
+                    # `update_file_progress_by_id` at its previous percentage.
+                    await Files.update_file_data_by_id(
+                        file.id, {'status': 'processing', 'progress': None}, db=db
+                    )
+
                     result = await run_in_threadpool(
                         save_docs_to_vector_db,
                         request,
@@ -2033,6 +2136,7 @@ async def process_file(
                         },
                         add=(True if form_data.collection_name else False),
                         user=user,
+                        on_progress=report_progress,
                     )
                     log.info(f'added {len(docs)} items to collection {collection_name}')
 
@@ -2076,6 +2180,15 @@ async def process_file(
                                 subject_type='file',
                                 data={'collection_name': collection_name, 'filename': file.filename},
                             )
+                            await publish_event(
+                                request,
+                                EVENTS.EMBEDDING_COMPLETED,
+                                actor=user,
+                                subject_id=file.id,
+                                subject_type='file',
+                                data={'filename': file.filename},
+                            )
+
                             return {
                                 'status': True,
                                 'collection_name': collection_name,
@@ -2085,6 +2198,15 @@ async def process_file(
                     else:
                         raise Exception('Error saving document to vector database')
                 except Exception as e:
+                    log.exception(e)
+                    await publish_event(
+                        request,
+                        EVENTS.EMBEDDING_FAILED,
+                        actor=user,
+                        subject_id=file.id,
+                        subject_type='file',
+                        data={'error': str(e), 'filename': file.filename},
+                    )
                     raise e
 
         except Exception as e:
