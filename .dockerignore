@@ -19,3 +19,4 @@ uploads
 **/*.db
 _test
 backend/data/*
+Medical-Graph-RAG

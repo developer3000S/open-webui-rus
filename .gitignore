@@ -311,3 +311,6 @@ cypress/videos
 cypress/screenshots
 .vscode/settings.json
 .cptr
+
+# Upstream research clone (https://github.com/ImprintLab/Medical-Graph-RAG), not part of the app
+/Medical-Graph-RAG/
