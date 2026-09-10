@@ -1033,6 +1033,30 @@ RAG_EMBEDDING_REQUEST_TIMEOUT = int(os.getenv('RAG_EMBEDDING_REQUEST_TIMEOUT', '
 # all, which is the condition worth failing on. Applies when RAG_EMBEDDING_TIMEOUT is unset.
 RAG_EMBEDDING_IDLE_TIMEOUT = int(os.getenv('RAG_EMBEDDING_IDLE_TIMEOUT', '7200'))
 
+# How long Ollama keeps the embedding model resident after a request. Unset, the daemon
+# applies its own 5-minute default and evicts the weights, so the first request after any
+# gap pays a full reload before it starts computing. Defaults to the idle window the
+# embedding job is itself willing to wait out, which keeps the model loaded at least as
+# long as a legitimately slow CPU pass can run.
+def _ollama_keep_alive(raw: Optional[str]) -> Union[int, str]:
+    """Normalise keep_alive into the form the Ollama API accepts.
+
+    Ollama parses a *string* keep_alive as a Go duration, so "7200" is rejected with
+    'missing unit in duration' while the bare number 7200 is read as seconds. A unitless
+    value therefore has to go out as an int; anything with a unit ("30m", "24h") stays a
+    string. An unset value falls back to the idle timeout rather than the daemon's 5 min.
+    """
+    if raw is None or raw.strip() == '':
+        return RAG_EMBEDDING_IDLE_TIMEOUT
+    raw = raw.strip()
+    try:
+        return int(raw)
+    except ValueError:
+        return raw
+
+
+RAG_EMBEDDING_KEEP_ALIVE = _ollama_keep_alive(os.getenv('RAG_EMBEDDING_KEEP_ALIVE'))
+
 RAG_EMBEDDING_QUERY_PREFIX = os.getenv('RAG_EMBEDDING_QUERY_PREFIX', None)
 
 RAG_EMBEDDING_CONTENT_PREFIX = os.getenv('RAG_EMBEDDING_CONTENT_PREFIX', None)
@@ -1070,11 +1094,16 @@ TIKTOKEN_CACHE_DIR = os.getenv('TIKTOKEN_CACHE_DIR', f'{CACHE_DIR}/tiktoken')
 TIKTOKEN_ENCODING_NAME = os.getenv('TIKTOKEN_ENCODING_NAME', 'cl100k_base')
 
 
-CHUNK_SIZE = int(os.getenv('CHUNK_SIZE', '1000'))
+# Config.env_bound() derives a key's .env name mechanically (rag.chunk_size ->
+# RAG_CHUNK_SIZE), so the .env precedence only works if the default is built from that same
+# name. These three keys historically read an unprefixed name, which made .env silent for
+# them: declaring either name alone lost to the seeded row. The prefixed name wins and the
+# legacy one keeps working for existing deployments.
+CHUNK_SIZE = int(os.getenv('RAG_CHUNK_SIZE', os.getenv('CHUNK_SIZE', '1000')))
 
-CHUNK_MIN_SIZE_TARGET = int(os.getenv('CHUNK_MIN_SIZE_TARGET', '0'))
+CHUNK_MIN_SIZE_TARGET = int(os.getenv('RAG_CHUNK_MIN_SIZE_TARGET', os.getenv('CHUNK_MIN_SIZE_TARGET', '0')))
 
-CHUNK_OVERLAP = int(os.getenv('CHUNK_OVERLAP', '100'))
+CHUNK_OVERLAP = int(os.getenv('RAG_CHUNK_OVERLAP', os.getenv('CHUNK_OVERLAP', '100')))
 
 DEFAULT_RAG_TEMPLATE = """### Task:
 Respond to the user query using the provided context, incorporating inline citations in the format [id] **only when the <source> tag includes an explicit id attribute** (e.g., <source id="1">).

@@ -22,6 +22,7 @@ from langchain_community.retrievers import BM25Retriever
 from langchain_core.documents import Document
 from open_webui.config import (
     RAG_EMBEDDING_CONTENT_PREFIX,
+    RAG_EMBEDDING_KEEP_ALIVE,
     RAG_EMBEDDING_PREFIX_FIELD_NAME,
     RAG_EMBEDDING_QUERY_PREFIX,
     VECTOR_DB,
@@ -1018,7 +1019,7 @@ def generate_ollama_batch_embeddings(
     user: UserModel = None,
 ) -> list[list[float]]:
     log.debug(f'generate_ollama_batch_embeddings:model {model} batch size: {len(texts)}')
-    json_data = {'input': texts, 'model': model, 'truncate': True}
+    json_data = {'input': texts, 'model': model, 'truncate': True, 'keep_alive': RAG_EMBEDDING_KEEP_ALIVE}
     if isinstance(RAG_EMBEDDING_PREFIX_FIELD_NAME, str) and isinstance(prefix, str):
         json_data[RAG_EMBEDDING_PREFIX_FIELD_NAME] = prefix
 
@@ -1054,7 +1055,7 @@ async def agenerate_ollama_batch_embeddings(
     user: UserModel = None,
 ) -> list[list[float]]:
     log.debug(f'agenerate_ollama_batch_embeddings:model {model} batch size: {len(texts)}')
-    form_data = {'input': texts, 'model': model, 'truncate': True}
+    form_data = {'input': texts, 'model': model, 'truncate': True, 'keep_alive': RAG_EMBEDDING_KEEP_ALIVE}
     if isinstance(RAG_EMBEDDING_PREFIX_FIELD_NAME, str) and isinstance(prefix, str):
         form_data[RAG_EMBEDDING_PREFIX_FIELD_NAME] = prefix
 

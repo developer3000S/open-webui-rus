@@ -1702,9 +1702,13 @@ def save_docs_to_vector_db(
         elif config.TEXT_SPLITTER == 'token_transformers':
             log.info('Using transformers token text splitter')
 
+            # Default separators end at ' ', cutting sentences mid-clause; e5 is a
+            # sentence-trained model and mixed-sentence vectors degrade retrieval, so
+            # split on paragraph, sentence, clause boundaries before falling back to words.
             text_splitter = RecursiveCharacterTextSplitter(
                 chunk_size=config.CHUNK_SIZE,
                 chunk_overlap=config.CHUNK_OVERLAP,
+                separators=['\n\n', '\n', '. ', '! ', '? ', '; ', ', ', ' ', ''],
                 length_function=get_splitter_length_function(request, config),
                 add_start_index=True,
             )
