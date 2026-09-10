@@ -8,6 +8,7 @@ import re
 import shutil
 import sys
 import traceback
+from io import StringIO
 from pathlib import Path
 from typing import Any, Optional
 from uuid import uuid4
@@ -15,6 +16,8 @@ from uuid import uuid4
 import markdown
 from bs4 import BeautifulSoup
 from cryptography.hazmat.primitives import serialization
+
+from open_webui.utils.env_config import parse_env_file, record_declared
 
 ####################################
 # Load .env file
@@ -32,12 +35,32 @@ BACKEND_DIR = OPEN_WEBUI_DIR.parent
 # BASE_DIR is the parent of BACKEND_DIR (open-webui-dev/)
 BASE_DIR = BACKEND_DIR.parent
 
-try:
-    from dotenv import find_dotenv, load_dotenv
+# The one place deployment settings are declared. Mounting the file rather than
+# passing it as --env-file keeps shell quoting out of the values.
+DOTENV_PATH = BASE_DIR / '.env'
 
-    load_dotenv(find_dotenv(str(BASE_DIR / '.env')))
+if DOTENV_PATH.is_file():
+    DOTENV_TEXT = DOTENV_PATH.read_text(encoding='utf-8')
+    # The names this file declares are the deployment's stated intent, which is
+    # what lets Config rank them above rows seeded in the config table earlier.
+    DOTENV_VALUES = parse_env_file(DOTENV_TEXT)
+    record_declared(set(DOTENV_VALUES))
+else:
+    # Absent file is a legitimate deployment (image defaults plus the admin UI);
+    # a file that exists but cannot be read is not, so it is not swallowed here.
+    DOTENV_TEXT = ''
+    DOTENV_VALUES = {}
+
+try:
+    from dotenv import load_dotenv
+
+    # override=True: a value pinned in .env must win over the image's own ENV
+    # lines, otherwise the file stays decorative for every key the image sets.
+    load_dotenv(stream=StringIO(DOTENV_TEXT), override=True)
 except ImportError:
     print('dotenv not installed, skipping...')
+    os.environ.update(DOTENV_VALUES)
+
 
 DOCKER = os.getenv('DOCKER', 'False').lower() == 'true'
 

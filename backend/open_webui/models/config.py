@@ -16,6 +16,7 @@ from typing import Any, ClassVar
 
 from fastapi.encoders import jsonable_encoder
 from open_webui.internal.db import Base, get_async_db
+from open_webui.utils.env_config import is_declared_in_env
 from sqlalchemy import JSON, BigInteger, Column, Text, delete, select
 
 log = logging.getLogger(__name__)
@@ -133,10 +134,19 @@ class Config(Base):
             return False
         return True
 
+    @classmethod
+    def env_bound(cls, key: str) -> bool:
+        """True when .env declares this key's variable, so the stored row is ignored.
+
+        The value comes from DEFAULTS, which config.py builds from os.getenv(), so it
+        already carries the .env value with the right type.
+        """
+        return is_declared_in_env(key) and key in cls.DEFAULTS
+
     @staticmethod
     async def get(key: str, default: Any = None) -> Any:
         """Get a config value by key. Returns default if not set."""
-        if not Config.persistent_enabled_for(key):
+        if not Config.persistent_enabled_for(key) or Config.env_bound(key):
             return Config.default_value(key, default)
         async with get_async_db() as db:
             row = await db.get(Config, key)
@@ -148,9 +158,9 @@ class Config(Base):
         disabled_values = {
             key: Config.default_value(key)
             for key in keys
-            if not Config.persistent_enabled_for(key) and key in Config.DEFAULTS
+            if (not Config.persistent_enabled_for(key) or Config.env_bound(key)) and key in Config.DEFAULTS
         }
-        enabled_keys = {key for key in keys if Config.persistent_enabled_for(key)}
+        enabled_keys = {key for key in keys if Config.persistent_enabled_for(key) and not Config.env_bound(key)}
         if not enabled_keys:
             return disabled_values
         async with get_async_db() as db:
@@ -168,7 +178,7 @@ class Config(Base):
         default_values = {
             key: value
             for key, value in Config.DEFAULTS.items()
-            if key.startswith(f'{namespace}.') and not Config.persistent_enabled_for(key)
+            if key.startswith(f'{namespace}.') and (not Config.persistent_enabled_for(key) or Config.env_bound(key))
         }
         if not Config.PERSISTENT_ENABLED:
             return default_values
@@ -180,14 +190,16 @@ class Config(Base):
 
     @staticmethod
     async def get_all() -> dict:
-        """Get all config as {key: value}."""
+        """Get all config as {key: value}, reflecting what the app actually uses."""
         if not Config.PERSISTENT_ENABLED:
             return dict(Config.DEFAULTS)
         async with get_async_db() as db:
             result = await db.execute(select(Config))
-            values = {row.key: row.value for row in result.scalars().all()}
+            values = {row.key: row.value for row in result.scalars().all() if not Config.env_bound(row.key)}
+            overridden = {key: value for key, value in Config.DEFAULTS.items() if Config.env_bound(key)}
             if not Config.OAUTH_PERSISTENT_ENABLED:
-                values.update({key: value for key, value in Config.DEFAULTS.items() if key.startswith('oauth.')})
+                overridden.update({key: value for key, value in Config.DEFAULTS.items() if key.startswith('oauth.')})
+            values.update(overridden)
             return values
 
     @staticmethod
@@ -196,7 +208,9 @@ class Config(Base):
         persistent_updates = {}
         for key, value in updates.items():
             value = _json_value(value)
-            if Config.persistent_enabled_for(key):
+            # A row for an .env-bound key would never be read back, so the running
+            # value is updated in place instead; .env stays the source of truth.
+            if Config.persistent_enabled_for(key) and not Config.env_bound(key):
                 persistent_updates[key] = value
             else:
                 Config.DEFAULTS[key] = value
@@ -246,7 +260,14 @@ class Config(Base):
 
             now = int(time.time())
             new_count = 0
+            env_bound = []
             for key, value in defaults.items():
+                if Config.env_bound(key):
+                    # Seeding a row that can never be read back would just duplicate
+                    # the .env declaration a third time.
+                    if key in existing_keys:
+                        env_bound.append(key)
+                    continue
                 if key not in existing_keys:
                     value = _json_value(value)
                     db.add(Config(key=key, value=value, updated_at=now))
@@ -256,6 +277,11 @@ class Config(Base):
             if new_count:
                 await db.commit()
                 log.info('Seeded %d new config defaults', new_count)
+            if env_bound:
+                log.info(
+                    'Ignoring stored values overridden by .env for: %s',
+                    ', '.join(sorted(env_bound)),
+                )
 
     @staticmethod
     async def rename_prefix(old_prefix: str, new_prefix: str) -> None:

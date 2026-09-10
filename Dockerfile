@@ -14,6 +14,7 @@ ARG USE_CUDA_VER=cu128
 ARG USE_EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
 ARG USE_RERANKING_MODEL=""
 ARG USE_AUXILIARY_EMBEDDING_MODEL=TaylorAI/bge-micro-v2
+ARG USE_WHISPER_MODEL=base
 
 # Tiktoken encoding name; models to use can be found at https://huggingface.co/models?library=tiktoken
 ARG USE_TIKTOKEN_ENCODING_NAME="cl100k_base"
@@ -55,6 +56,8 @@ ARG USE_PERMISSION_HARDENING
 ARG USE_EMBEDDING_MODEL
 ARG USE_RERANKING_MODEL
 ARG USE_AUXILIARY_EMBEDDING_MODEL
+ARG USE_WHISPER_MODEL
+ARG USE_TIKTOKEN_ENCODING_NAME
 ARG UID
 ARG GID
 
@@ -62,45 +65,43 @@ ARG GID
 ENV PYTHONUNBUFFERED=1
 
 ## Basis ##
+# start.sh and the app read these at container start. Model names below are bound
+# to the build args rather than repeating literals: the image must run with the
+# models it baked, and --build-arg is the documented way to choose them. Anything
+# an operator may re-declare lives in .env, which env.py re-reads with
+# override=True and which outranks these values.
 ENV ENV=prod \
     PORT=8080 \
     # pass build args to the build
     USE_OLLAMA_DOCKER=${USE_OLLAMA} \
     USE_CUDA_DOCKER=${USE_CUDA} \
     USE_SLIM_DOCKER=${USE_SLIM} \
-    USE_CUDA_DOCKER_VER=${USE_CUDA_VER} \
-    USE_EMBEDDING_MODEL_DOCKER=${USE_EMBEDDING_MODEL} \
-    USE_RERANKING_MODEL_DOCKER=${USE_RERANKING_MODEL} \
-    USE_AUXILIARY_EMBEDDING_MODEL_DOCKER=${USE_AUXILIARY_EMBEDDING_MODEL}
+    USE_CUDA_DOCKER_VER=${USE_CUDA_VER}
 
-## Basis URL Config ##
-ENV OLLAMA_BASE_URL="/ollama" \
-    OPENAI_API_BASE_URL=""
+# Sentinel, not a setting: config.py turns '/ollama' into host.docker.internal:11434
+# when ENV=prod and no explicit URL is given. It stays a sentinel rather than a
+# real URL so that .env, re-read by env.py, can replace it.
+ENV OLLAMA_BASE_URL="/ollama"
 
-## API Key and Security Config ##
-ENV OPENAI_API_KEY="" \
-    WEBUI_SECRET_KEY="" \
-    SCARF_NO_ANALYTICS=true \
+## Model selection, from the build args above ##
+ENV WHISPER_MODEL="$USE_WHISPER_MODEL" \
+    RAG_EMBEDDING_MODEL="$USE_EMBEDDING_MODEL" \
+    RAG_RERANKING_MODEL="$USE_RERANKING_MODEL" \
+    AUXILIARY_EMBEDDING_MODEL="$USE_AUXILIARY_EMBEDDING_MODEL" \
+    TIKTOKEN_ENCODING_NAME="$USE_TIKTOKEN_ENCODING_NAME"
+
+## Cache locations (image layout, not operator settings) ##
+ENV WHISPER_MODEL_DIR="/app/backend/data/cache/whisper/models" \
+    SENTENCE_TRANSFORMERS_HOME="/app/backend/data/cache/embedding/models" \
+    TIKTOKEN_CACHE_DIR="/app/backend/data/cache/tiktoken" \
+    HF_HOME="/app/backend/data/cache/embedding/models"
+
+# Privacy defaults for third-party libraries, read by the libraries themselves and
+# by nothing in this repo. Kept here (and not left to .env) so that running the
+# image without a .env is not silently more chatty than running it with one.
+ENV SCARF_NO_ANALYTICS=true \
     DO_NOT_TRACK=true \
     ANONYMIZED_TELEMETRY=false
-
-#### Other models #########################################################
-## whisper TTS model settings ##
-ENV WHISPER_MODEL="base" \
-    WHISPER_MODEL_DIR="/app/backend/data/cache/whisper/models"
-
-## RAG Embedding model settings ##
-ENV RAG_EMBEDDING_MODEL="$USE_EMBEDDING_MODEL_DOCKER" \
-    RAG_RERANKING_MODEL="$USE_RERANKING_MODEL_DOCKER" \
-    AUXILIARY_EMBEDDING_MODEL="$USE_AUXILIARY_EMBEDDING_MODEL_DOCKER" \
-    SENTENCE_TRANSFORMERS_HOME="/app/backend/data/cache/embedding/models"
-
-## Tiktoken model settings ##
-ENV TIKTOKEN_ENCODING_NAME="cl100k_base" \
-    TIKTOKEN_CACHE_DIR="/app/backend/data/cache/tiktoken"
-
-## Hugging Face download cache ##
-ENV HF_HOME="/app/backend/data/cache/embedding/models"
 
 ## Torch Extensions ##
 # ENV TORCH_EXTENSIONS_DIR="/.cache/torch_extensions"

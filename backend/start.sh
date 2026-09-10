@@ -7,14 +7,41 @@ set -euo pipefail
 # HuggingFace Space deployment, and launches the uvicorn server.
 # ---------------------------------------------------------------------------
 
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+cd "$SCRIPT_DIR" || exit 1
+
+# ── Deployment settings ──────────────────────────────────────────────────────
+# .env is the single source for these. It is mounted next to the app dir (see
+# docker-run.sh / docker-compose.yaml) and open_webui/env.py re-reads it for the
+# Python layer, but the values below are needed here, before the server starts.
+# Read with the same parser the app uses rather than `source`-ing the file:
+# dotenv accepts `KEY=some value` on one line, which bash would run as a command
+# named `some`, and docker's own --env-file would keep the quotes that
+# FORWARDED_ALLOW_IPS='*' must not carry into a uvicorn flag.
+PYTHON_CMD=$(command -v python3 || command -v python)
+ENV_FILE_PATH="${ENV_FILE:-$(dirname "$SCRIPT_DIR")/.env}"
+if [[ -f "$ENV_FILE_PATH" ]]; then
+  set +u
+  eval "$("$PYTHON_CMD" - "$ENV_FILE_PATH" "$SCRIPT_DIR/open_webui/utils/env_config.py" <<'PY'
+import shlex, sys
+from importlib.util import module_from_spec, spec_from_file_location
+
+spec = spec_from_file_location('env_config', sys.argv[2])
+env_config = module_from_spec(spec)
+spec.loader.exec_module(env_config)
+values = env_config.parse_env_file(open(sys.argv[1], encoding='utf-8').read())
+print(''.join(f'export {k}={shlex.quote(v)}\n' for k, v in values.items()))
+PY
+)"
+  set -u
+  echo "Loaded deployment settings from ${ENV_FILE_PATH}"
+fi
+
 # Default optional env vars that we test below with bash's `,,` lowercase
 # expansion. The two can't be combined inline (`${VAR:-default,,}` makes
 # the default literal `,,`), so we normalise once up front and the simple
 # `${VAR,,}` form stays safe under `set -u` everywhere else.
 : "${WEB_LOADER_ENGINE:=}" "${USE_OLLAMA_DOCKER:=}" "${USE_CUDA_DOCKER:=}"
-
-SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
-cd "$SCRIPT_DIR" || exit 1
 
 # ── Playwright browser installation (if configured) ──────────────────────────
 
@@ -96,7 +123,6 @@ fi
 
 # ── Launch uvicorn ───────────────────────────────────────────────────────────
 
-PYTHON_CMD=$(command -v python3 || command -v python)
 UVICORN_WORKERS="${UVICORN_WORKERS:-1}"
 
 if [[ "$#" -gt 0 ]]; then
