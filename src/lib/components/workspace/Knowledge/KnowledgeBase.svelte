@@ -252,12 +252,19 @@
 					const existingIds = new Set(fileItems.map((f) => f.id));
 					const newPending = pendingFiles
 						.filter((f) => !existingIds.has(f.id))
-						.map((f) => ({
-							...f,
-							name: f.meta?.name ?? f.filename,
-							status: 'uploading',
-							progress: liveProgress.get(f.id) ?? serverProgressToFileProgress(f.data?.progress)
-						}));
+						.map((f) => {
+							const live = liveProgress.get(f.id);
+							return {
+								...f,
+								name: f.meta?.name ?? f.filename,
+								status: 'uploading',
+								// A pending row is the same document as this tab's local row, so the
+								// live bar wins; the server value only fills the gap for other tabs.
+								// `?? {}` floors an as-yet-silent job at the transfer/processing
+								// handover instead of 0%, which reads as a dead upload after a reload.
+								progress: live ?? serverProgressToFileProgress(f.data?.progress ?? {})
+							};
+						});
 					if (newPending.length > 0) {
 						fileItems = [...newPending, ...fileItems];
 
@@ -273,14 +280,26 @@
 									} else {
 										// Pick up server-side embedding progress for rows this tab is
 										// not streaming itself (another tab, a reloaded page).
-										const progressById = new Map(
-											still.map((f) => [f.id, serverProgressToFileProgress(f.data?.progress)])
-										);
-										fileItems = (fileItems ?? []).map((item) => {
-											if (progressById.has(item.id)) {
-												return { ...item, progress: progressById.get(item.id) };
+										const progressById = new Map<string, FileProgress>();
+										for (const pending of still) {
+											const serverProgress = serverProgressToFileProgress(pending.data?.progress);
+											if (serverProgress) {
+												progressById.set(pending.id, serverProgress);
 											}
-											return item;
+										}
+										fileItems = (fileItems ?? []).map((item) => {
+											const server = progressById.get(item.id);
+											if (!server) {
+												return item;
+											}
+											const live: FileProgress | null = item.progress ?? null;
+											// The server only ticks once an embedding batch lands, so early in
+											// a job the streamed local bar is ahead of it. Taking the max keeps
+											// the bar monotonic instead of snapping back to 50%/0 chunks.
+											if (live && (live.percent ?? 0) > (server.percent ?? 0)) {
+												return item;
+											}
+											return { ...item, progress: server };
 										});
 									}
 								} catch {}
@@ -435,7 +454,9 @@
 		const fileItem = {
 			type: 'file',
 			file: '',
-			id: null,
+			// Typed so the id from the progress handover can be assigned before the
+			// upload promise resolves.
+			id: null as string | null,
 			url: '',
 			name: file.name,
 			size: file.size,
@@ -480,6 +501,12 @@
 					: {})
 			};
 
+			// A list rebuild replaces this row with a server-derived object that carries no
+			// `itemId`, so matching on `itemId` alone silently detaches the live stream from
+			// the rendered row. The file id is the stable key once the handover tick has it.
+			const isThisRow = (item) =>
+				item?.itemId === fileItem.itemId || (!!fileItem.id && item?.id === fileItem.id);
+
 			const uploadedFile = await uploadFile(
 				localStorage.token,
 				file,
@@ -488,7 +515,22 @@
 				true,
 				(progress) => {
 					fileItem.progress = progress;
-					fileItems = fileItems.map((item) => (item.itemId === fileItem.itemId ? { ...item } : item));
+					// `uploadFile` only resolves once the status stream closes, so without this
+					// the row keeps `id: null` for the whole embedding job and the pending-files
+					// merge cannot recognise it, rendering a second row for the same document.
+					if (progress.file_id && !fileItem.id) {
+						fileItem.id = progress.file_id;
+					}
+					fileItems = (fileItems ?? []).map((item) => {
+						if (!isThisRow(item)) return item;
+						return {
+							...item,
+							id: fileItem.id ?? item.id,
+							name: fileItem.name,
+							status: 'uploading',
+							progress: fileItem.progress
+						};
+					});
 				}
 			).catch((e) => {
 				toast.error(`${e}`);
@@ -497,8 +539,8 @@
 
 			if (uploadedFile) {
 				console.log(uploadedFile);
-				fileItems = fileItems.map((item) => {
-					if (item.itemId === fileItem.itemId) {
+				fileItems = (fileItems ?? []).map((item) => {
+					if (isThisRow(item)) {
 						item.id = uploadedFile.id;
 					}
 					return item;
@@ -514,9 +556,13 @@
 				}
 			} else {
 				toast.error($i18n.t('Failed to upload file.'));
+				// Without this the row keeps `status: 'uploading'` and its last progress tick,
+				// so a failed upload haunts the list as a frozen "Uploading 0%" forever.
+				fileItems = (fileItems ?? []).filter((item) => !isThisRow(item));
 			}
 		} catch (e) {
 			toast.error(`${e}`);
+			fileItems = (fileItems ?? []).filter((item) => item.itemId !== fileItem.itemId);
 		}
 	};
 

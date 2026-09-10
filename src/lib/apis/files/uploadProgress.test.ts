@@ -25,6 +25,12 @@ describe('serverProgressToFileProgress', () => {
 	it('treats a tick without a percentage as just started', () => {
 		expect(serverProgressToFileProgress({ phase: 'embedding' })).toMatchObject({ percent: 0.5 });
 	});
+
+	// A pending row was already accepted by the server, so a job that has not emitted a tick
+	// yet must floor at the handover rather than 0% ("Загрузка 0%" forever after a reload).
+	it('floors an entirely silent job at the handover', () => {
+		expect(serverProgressToFileProgress({})).toMatchObject({ percent: 0.5 });
+	});
 });
 
 class FakeXHR {
@@ -126,9 +132,41 @@ describe('uploadFile progress reporting', () => {
 		expect(seen).toEqual([
 			{ phase: 'uploading', percent: 0 },
 			{ phase: 'uploading', percent: 0.25 },
-			{ phase: 'processing', percent: 0.5, processed_chunks: 0, total_chunks: null },
+			{
+				phase: 'processing',
+				percent: 0.5,
+				processed_chunks: 0,
+				total_chunks: null,
+				file_id: 'file-1'
+			},
 			{ phase: 'embedding', percent: 0.75, processed_chunks: 3, total_chunks: 6 }
 		]);
+	});
+
+	it('still hands over to the processing phase when the status stream cannot open', async () => {
+		// A failed status stream used to leave the bar on the last transfer tick —
+		// "Uploading 0%" for a body the server already took, with nothing ever moving it.
+		global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 502, body: null });
+
+		const { seen, onProgress } = collect();
+		const pending = uploadFile('token', file, null, null, true, onProgress);
+		FakeXHR.instances[0].respondWith(200, { id: 'file-1' });
+
+		await pending;
+		const phases = seen.map((entry) => entry.phase);
+		expect(phases[phases.length - 1]).toBe('processing');
+		expect(seen[seen.length - 1]).toMatchObject({ file_id: 'file-1', percent: 0.5 });
+	});
+
+	it('hands over even when opening the status stream throws', async () => {
+		global.fetch = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+
+		const { seen, onProgress } = collect();
+		const pending = uploadFile('token', file, null, null, true, onProgress);
+		FakeXHR.instances[0].respondWith(200, { id: 'file-9' });
+
+		await expect(pending).resolves.toEqual({ id: 'file-9' });
+		expect(seen[seen.length - 1]).toMatchObject({ phase: 'processing', file_id: 'file-9' });
 	});
 
 	it('rounds transfer progress to half-percent steps', async () => {

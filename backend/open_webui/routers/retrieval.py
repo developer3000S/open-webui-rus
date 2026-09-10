@@ -39,6 +39,7 @@ from open_webui.config import (
     DEFAULT_LOCALE,
     ENV,
     RAG_EMBEDDING_CONTENT_PREFIX,
+    RAG_EMBEDDING_IDLE_TIMEOUT,
     RAG_EMBEDDING_MODEL_AUTO_UPDATE,
     RAG_EMBEDDING_MODEL_TRUST_REMOTE_CODE,
     RAG_EMBEDDING_QUERY_PREFIX,
@@ -119,6 +120,11 @@ from open_webui.storage.provider import Storage
 from open_webui.utils.access_control import has_permission
 from open_webui.utils.access_control.files import has_access_to_file
 from open_webui.utils.auth import get_admin_user, get_verified_user
+from open_webui.utils.embedding_wait import (
+    EmbeddingStalledError,
+    EmbeddingTimeoutError,
+    await_embedding,
+)
 from open_webui.utils.misc import (
     calculate_sha256_string,
     sanitize_text_for_db,
@@ -1788,7 +1794,12 @@ def save_docs_to_vector_db(
         # This allows the main loop to stay responsive to health checks during long operations
         embedding_timeout = RAG_EMBEDDING_TIMEOUT
 
+        # Touched by the embedding coroutine's progress hook and read by the waiter below;
+        # a dict keeps the mutation shared across threads without a lock.
+        last_embedding_tick = {'at': time.monotonic()}
+
         def _on_embedding_progress(processed: int, total: int) -> None:
+            last_embedding_tick['at'] = time.monotonic()
             share = 0.80 if total else 1.0
             _report('embedding', 0.10 + share * (processed / max(total, 1)), processed)
 
@@ -1801,7 +1812,15 @@ def save_docs_to_vector_db(
             ),
             request.app.state.main_loop,
         )
-        embeddings = future.result(timeout=embedding_timeout)
+        try:
+            embeddings = await_embedding(
+                future,
+                total_timeout=embedding_timeout,
+                idle_timeout=RAG_EMBEDDING_IDLE_TIMEOUT if on_progress else None,
+                last_progress_at=lambda: last_embedding_tick['at'],
+            )
+        except (EmbeddingStalledError, EmbeddingTimeoutError) as e:
+            raise TimeoutError(str(e)) from e
         log.info(f'embeddings generated {len(embeddings)} for {len(texts)} items')
 
         items = [

@@ -28,6 +28,8 @@ from open_webui.config import (
     EMBEDDING_MAX_CONNECTIONS,
     EMBEDDING_MAX_RETRIES,
     EMBEDDING_RETRY_BASE_DELAY,
+    RAG_EMBEDDING_CONCURRENT_REQUESTS_FALLBACK,
+    RAG_EMBEDDING_REQUEST_TIMEOUT,
 )
 from open_webui.env import (
     AIOHTTP_CLIENT_ALLOW_REDIRECTS,
@@ -1065,7 +1067,7 @@ async def agenerate_ollama_batch_embeddings(
 
     async with aiohttp.ClientSession(
         trust_env=True,
-        timeout=aiohttp.ClientTimeout(total=AIOHTTP_CLIENT_TIMEOUT),
+        timeout=aiohttp.ClientTimeout(total=RAG_EMBEDDING_REQUEST_TIMEOUT),
         connector=aiohttp.TCPConnector(limit=EMBEDDING_MAX_CONNECTIONS),
     ) as session:
         last_error = None
@@ -1184,10 +1186,14 @@ def get_embedding_function(
 
                 if enable_async:
                     log.debug(f'generate_multiple_async: Processing {len(batches)} batches in parallel')
-                    # Use semaphore to limit concurrent embedding API requests
-                    # 0 = unlimited (no semaphore)
-                    if concurrent_requests:
-                        semaphore = asyncio.Semaphore(concurrent_requests)
+                    # Use semaphore to limit concurrent embedding API requests.
+                    # Unset (0) now falls back to a bounded concurrency; set
+                    # RAG_EMBEDDING_CONCURRENT_REQUESTS above 0 to tune it, or the fallback
+                    # to 0 to restore issuing every batch at once.
+                    concurrent = concurrent_requests or RAG_EMBEDDING_CONCURRENT_REQUESTS_FALLBACK
+
+                    if concurrent:
+                        semaphore = asyncio.Semaphore(concurrent)
 
                         async def generate_batch_with_semaphore(batch):
                             async with semaphore:

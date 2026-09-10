@@ -6,6 +6,9 @@ export type FileProgress = {
 	percent?: number;
 	processed_chunks?: number | null;
 	total_chunks?: number | null;
+	// Carried on the handover tick so a caller can correlate the row it renders with
+	// the server record before `uploadFile` resolves.
+	file_id?: string;
 };
 
 // Transfer and server-side processing each own half of the bar.
@@ -129,11 +132,26 @@ export const uploadFile = async (
 	}
 
 	if (res && stream) {
-		const status = await getFileProcessStatus(token, res.id);
+		// Announce the handover before opening the status stream. If the stream can never
+		// be established (proxy hiccup, 403, a server that died mid-job), the bar would
+		// otherwise sit on the last transfer tick — `uploading 0%` for a body that already
+		// arrived — and read as "nothing is happening".
+		emit({
+			phase: 'processing',
+			percent: UPLOAD_SHARE,
+			processed_chunks: 0,
+			total_chunks: null,
+			file_id: res.id
+		});
+
+		let status = null;
+		try {
+			status = await getFileProcessStatus(token, res.id);
+		} catch {
+			status = null;
+		}
 
 		if (status && status.ok) {
-			emit({ phase: 'processing', percent: UPLOAD_SHARE, processed_chunks: 0, total_chunks: null });
-
 			const reader = status.body
 				.pipeThrough(new TextDecoderStream())
 				.pipeThrough(splitStream('\n'))

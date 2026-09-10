@@ -1003,13 +1003,35 @@ EMBEDDING_RETRY_BASE_DELAY = RAG_EMBEDDING_RETRY_BASE_DELAY
 
 RAG_EMBEDDING_MODEL_TRUST_REMOTE_CODE = os.getenv('RAG_EMBEDDING_MODEL_TRUST_REMOTE_CODE', 'True').lower() == 'true'
 
+# Chunks per embedding API request. Progress is only observable between requests, so on a
+# slow (CPU-only) embedding server a large batch leaves the bar unmoved for the whole
+# batch, which reads as a stuck upload; a large batch against a busy Ollama is also what
+# fills its pending-request queue and produces `503 server busy`. Raise it for a
+# GPU-backed or hosted endpoint.
 RAG_EMBEDDING_BATCH_SIZE = int(
-    os.getenv('RAG_EMBEDDING_BATCH_SIZE') or os.getenv('RAG_EMBEDDING_OPENAI_BATCH_SIZE', '32')
+    os.getenv('RAG_EMBEDDING_BATCH_SIZE') or os.getenv('RAG_EMBEDDING_OPENAI_BATCH_SIZE', '1')
 )
 
 ENABLE_ASYNC_EMBEDDING = os.getenv('ENABLE_ASYNC_EMBEDDING', 'True').lower() == 'true'
 
+# 0 means "no semaphore", which historically let every batch of a large document hit the
+# embedding server at once. Ollama answers that with `503 server busy, maximum pending
+# requests exceeded` and drops connections, so a request limit is applied when the stored
+# setting is 0. Set it above 0 to override, or raise it for a GPU-backed server.
 RAG_EMBEDDING_CONCURRENT_REQUESTS = int(os.getenv('RAG_EMBEDDING_CONCURRENT_REQUESTS', '0'))
+RAG_EMBEDDING_CONCURRENT_REQUESTS_FALLBACK = int(os.getenv('RAG_EMBEDDING_CONCURRENT_REQUESTS_FALLBACK', '4'))
+
+# Dead line for a single embedding HTTP call. AIOHTTP_CLIENT_TIMEOUT defaults to None
+# (wait forever), so a request the embedding server never answers leaves the file in
+# `processing` indefinitely. Sized for CPU-only endpoints, where one batch can legitimately
+# run for tens of minutes; lower it for a GPU-backed or hosted embedding server.
+RAG_EMBEDDING_REQUEST_TIMEOUT = int(os.getenv('RAG_EMBEDDING_REQUEST_TIMEOUT', '3600'))
+
+# How long the whole embedding pass may go without a single progress tick before the job is
+# abandoned. Idle-based rather than a total ceiling: a large document on a CPU-only
+# embedding server legitimately runs for hours, while a wedged server produces no ticks at
+# all, which is the condition worth failing on. Applies when RAG_EMBEDDING_TIMEOUT is unset.
+RAG_EMBEDDING_IDLE_TIMEOUT = int(os.getenv('RAG_EMBEDDING_IDLE_TIMEOUT', '7200'))
 
 RAG_EMBEDDING_QUERY_PREFIX = os.getenv('RAG_EMBEDDING_QUERY_PREFIX', None)
 
