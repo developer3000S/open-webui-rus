@@ -288,11 +288,17 @@ class Neo4jGraph:
         )
 
     def neighbors(self, entity_ids: list[tuple[str, str]], depth: int = 1, limit_per: int = 12) -> list[dict]:
-        """Expand the graph around found entities.
+        """Expand the entity graph around found entities.
 
         `entity_ids` is [(id, gid), ...] — the same id under two gids is two
         nodes. Each hop keeps the relationship text and the neighbour summary so
         the assembled context is self-explanatory.
+
+        Every node on the path must be an Entity of the same gid: the structural
+        Chunk-[:MENTIONS]->Entity edges otherwise make two entities that merely
+        share a chunk look adjacent, and since those edges carry no strength
+        they surface at the coalesce() default of 1.0 -- i.e. the noise outscores
+        the real relations in the text handed to the model.
         """
         if not entity_ids:
             return []
@@ -307,7 +313,7 @@ class Neo4jGraph:
             CALL {{
                 WITH e
                 MATCH path = (e)-[r*1..{depth}]-(m:Entity)
-                WHERE m.gid = e.gid AND m <> e
+                WHERE m <> e AND ALL(n IN nodes(path) WHERE n:Entity AND n.gid = e.gid)
                 WITH e, r, m, length(path) AS hops
                 ORDER BY hops ASC, coalesce(r[-1].strength, 1.0) DESC
                 LIMIT $limit_per

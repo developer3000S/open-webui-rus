@@ -130,6 +130,18 @@ class TestNeo4jGraph(unittest.TestCase):
         nb = self.graph.neighbors([('e_amox', self.gid)], depth=1, limit_per=5)
         self.assertTrue(any(n['mid'] == 'e_shock' and 'CAUSES' in n['types'] for n in nb))
 
+    def test_05b_neighbors_skip_structural_edges(self):
+        # e_amox and e_shock share chunk c1, so at depth 2 they are also
+        # "adjacent" through Chunk-[:MENTIONS]->Entity. Those edges carry no
+        # strength and used to surface at the coalesce() default of 1.0,
+        # outranking the real relation in the text handed to the model.
+        nb = self.graph.neighbors([('e_amox', self.gid)], depth=2, limit_per=20)
+        self.assertTrue(nb, 'depth-2 traversal returned nothing')
+        for row in nb:
+            self.assertNotIn('MENTIONS', row['types'], f'structural edge leaked: {row}')
+        # ...without over-filtering: the genuine edge is still reported.
+        self.assertTrue(any(n['mid'] == 'e_shock' and 'CAUSES' in n['types'] for n in nb))
+
     def test_06_top_entities(self):
         top = self.graph.top_entities(self.gid, limit=10)
         names = {t['name'] for t in top}
