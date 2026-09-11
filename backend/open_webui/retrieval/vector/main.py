@@ -85,6 +85,22 @@ class VectorDBBase(ABC):
         """Retrieve all vectors from a collection."""
         pass
 
+    def get_with_embeddings(
+        self,
+        collection_name: str,
+        filter: Optional[Dict] = None,
+    ) -> Optional[List[VectorItem]]:
+        """Read stored chunks together with their vectors.
+
+        Used to hand embeddings to a client that already computed them instead of
+        paying the embedding server a second time for identical content, so the
+        caller never needs to know the model's dimensionality.
+
+        Not a part of `VectorDBBase`'s required surface: backends that cannot
+        return stored vectors report None and the caller embeds normally.
+        """
+        return None
+
     @abstractmethod
     def delete(
         self,

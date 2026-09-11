@@ -138,6 +138,45 @@ class ChromaClient(VectorDBBase):
             )
         return None
 
+    def get_with_embeddings(
+        self,
+        collection_name: str,
+        filter: Optional[dict] = None,
+    ) -> Optional[list[VectorItem]]:
+        # Vectors are readable from Chroma but are not part of GetResult, so they are
+        # returned as VectorItem directly: the only caller wants to hand them straight
+        # back to insert() without recomputing them.
+        try:
+            collection = self.client.get_collection(name=collection_name)
+        except Exception:
+            return None
+        if not collection:
+            return None
+
+        result = collection.get(where=filter, include=['embeddings', 'metadatas', 'documents'])
+        embeddings = result.get('embeddings')
+        if embeddings is None:
+            return None
+
+        ids = result.get('ids') or []
+        documents = result.get('documents') or [None] * len(ids)
+        metadatas = result.get('metadatas') or [None] * len(ids)
+
+        items = []
+        for idx, chunk_id in enumerate(ids):
+            vector = embeddings[idx]
+            # numpy arrays arrive from chroma; a plain list is what insert() expects.
+            vector = vector.tolist() if hasattr(vector, 'tolist') else list(vector)
+            items.append(
+                VectorItem(
+                    id=str(chunk_id),
+                    text=documents[idx] or '',
+                    vector=vector,
+                    metadata=metadatas[idx] or {},
+                )
+            )
+        return items
+
     def insert(self, collection_name: str, items: list[VectorItem]):
         # Insert the items into the collection, if the collection does not exist, it will be created.
         collection = self.client.get_or_create_collection(name=collection_name, metadata={'hnsw:space': 'cosine'})

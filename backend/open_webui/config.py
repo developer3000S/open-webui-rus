@@ -1014,6 +1014,13 @@ RAG_EMBEDDING_BATCH_SIZE = int(
 
 ENABLE_ASYNC_EMBEDDING = os.getenv('ENABLE_ASYNC_EMBEDDING', 'True').lower() == 'true'
 
+# Reuse the vectors of an already-indexed file whose extracted text hashes identically,
+# instead of paying the embedding server again. On a CPU-only Ollama one 460-token chunk
+# costs ~12.5s, and corpora here carry heavy duplication (МКБ-10 appears four times), so
+# the same text re-embedded is the dominant avoidable cost. The saved `hash` is sha256 of
+# extracted text, so two different formats of one document match only after extraction.
+RAG_DEDUP_DUPLICATE_FILES = os.getenv('RAG_DEDUP_DUPLICATE_FILES', 'True').lower() == 'true'
+
 # 0 means "no semaphore", which historically let every batch of a large document hit the
 # embedding server at once. Ollama answers that with `503 server busy, maximum pending
 # requests exceeded` and drops connections, so a request limit is applied when the stored

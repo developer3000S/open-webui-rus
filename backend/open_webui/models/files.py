@@ -493,6 +493,32 @@ class FilesTable:
                 log.warning(f'Error fetching pending files for knowledge {knowledge_id}: {e}')
                 return []
 
+    async def get_completed_files_by_hash(
+        self, hash: str, exclude_file_id: str | None = None, db: AsyncSession | None = None
+    ) -> list[FileModel]:
+        """Files whose stored content hash matches, oldest first.
+
+        Only a `completed` file can be a reuse source: `failed` is cleared back to a
+        NULL hash by the failure path, but a file that was marked completed while its
+        collection went missing is exactly what the caller must be able to walk past,
+        so candidates are ordered and the caller validates each one's vectors.
+        """
+        if not hash:
+            return []
+        async with get_async_db_context(db) as db:
+            stmt = (
+                select(File)
+                .filter(
+                    File.hash == hash,
+                    File.data['status'].as_string() == 'completed',
+                )
+                .order_by(File.created_at.asc())
+            )
+            if exclude_file_id:
+                stmt = stmt.filter(File.id != exclude_file_id)
+            result = await db.execute(stmt)
+            return [FileModel.model_validate(file) for file in result.scalars().all()]
+
     async def delete_file_by_id(self, id: str, db: AsyncSession | None = None) -> bool:
         async with get_async_db_context(db) as db:
             try:

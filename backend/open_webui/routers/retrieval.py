@@ -38,6 +38,7 @@ from langchain_text_splitters import (
 from open_webui.config import (
     DEFAULT_LOCALE,
     ENV,
+    RAG_DEDUP_DUPLICATE_FILES,
     RAG_EMBEDDING_CONTENT_PREFIX,
     RAG_EMBEDDING_IDLE_TIMEOUT,
     RAG_EMBEDDING_MODEL_AUTO_UPDATE,
@@ -65,6 +66,7 @@ from open_webui.models.knowledge import Knowledges
 from open_webui.models.config import Config
 
 # Document loaders
+from open_webui.retrieval.dedup import reused_embedding_items
 from open_webui.retrieval.loaders.youtube import YoutubeLoader
 from open_webui.retrieval.utils import (
     build_loader_from_config,
@@ -1609,6 +1611,7 @@ def save_docs_to_vector_db(
     add: bool = False,
     user=None,
     on_progress: Callable[[str, float, dict], None] | None = None,
+    reuse_from: list[tuple[str, str]] | None = None,
 ) -> bool:
     def _get_docs_info(docs: list[Document]) -> str:
         docs_info = set()
@@ -1763,6 +1766,38 @@ def save_docs_to_vector_db(
                 log.info(f'collection {collection_name} already exists, overwrite is False and add is False')
                 return True
 
+        for source_collection, source_file_id in reuse_from or []:
+            try:
+                source_items = VECTOR_DB_CLIENT.get_with_embeddings(
+                    collection_name=source_collection,
+                    filter={'file_id': source_file_id},
+                )
+            except Exception:
+                # Reading a reuse source is the only step here that did not exist
+                # before; its failure must not sink an upload that would otherwise
+                # have embedded successfully.
+                log.debug(f'could not read embeddings from {source_collection}', exc_info=True)
+                continue
+
+            reused_items = reused_embedding_items(
+                source_items,
+                config.RAG_EMBEDDING_ENGINE,
+                config.RAG_EMBEDDING_MODEL,
+                metadata,
+                texts,
+                metadatas,
+            )
+            if reused_items is None:
+                log.info(f'embedding reuse declined for {source_collection}, trying the next source')
+                continue
+            log.info(
+                f'reusing {len(reused_items)} embeddings from {source_collection} '
+                f'for {collection_name} instead of re-embedding'
+            )
+            VECTOR_DB_CLIENT.insert(collection_name=collection_name, items=reused_items)
+            _report('embedding', 1.0, total_chunks)
+            return True
+
         log.info(f'generating embeddings for {collection_name}')
         embedding_function = get_embedding_function(
             config.RAG_EMBEDDING_ENGINE,
@@ -1909,6 +1944,72 @@ async def cleanup_cancelled_embedding(collection_name: str | None, file_id: str)
             await ASYNC_VECTOR_DB_CLIENT.delete(collection_name=collection_name, filter={'file_id': file_id})
     except Exception as e:
         log.debug(f'Could not clean up vectors for cancelled file {file_id}: {e}')
+
+
+# Upper bound on reuse candidates probed per upload. Each probe reads a collection's
+# chunk ids, so an unbounded scan turns one upload into as many vector-store round
+# trips as the corpus has copies of a document — the duplicate rate here is high
+# enough (МКБ-10 appears four times) that the cap matters. The first candidate whose
+# split and model match wins, so a small ceiling costs nothing in practice.
+REUSE_SOURCE_CANDIDATE_LIMIT = 5
+
+
+async def resolve_embedding_reuse_source(
+    file_id: str, content_hash: str, target_collection: str | None = None
+) -> list[tuple[str, str]] | None:
+    """Collections whose vectors can be copied for this file instead of re-embedding.
+
+    The stored `hash` is sha256 of the extracted text, so a match means the two files
+    yield byte-identical chunks and their embeddings are interchangeable. The file's
+    own per-file collection is preferred when the target is a knowledge base: the
+    upload pipeline indexes into `file-{id}` and then into the knowledge base, and
+    without self-reuse the second pass would pay the embedding server again for
+    vectors computed seconds earlier.
+
+    Candidates are checked for having chunks before being offered: a file may carry
+    `completed` while its vectors are gone, and copying from such a row would leave
+    the new file searchable by nothing. Every surviving candidate is returned rather
+    than only the first, because candidates indexed under different embedding models
+    are common in this corpus and the model is validated at the copy site. Only
+    existence is probed here — the vectors themselves are read once, by the caller
+    that uses them.
+    """
+    if not content_hash:
+        return None
+
+    sources: list[tuple[str, str]] = []
+    own_collection = f'file-{file_id}'
+    if target_collection and target_collection != own_collection:
+        if await _collection_has_chunks(own_collection, file_id):
+            sources.append((own_collection, file_id))
+
+    try:
+        candidates = await Files.get_completed_files_by_hash(content_hash, exclude_file_id=file_id)
+    except Exception:
+        log.debug('duplicate-content lookup failed', exc_info=True)
+        return sources or None
+
+    for candidate in candidates[:REUSE_SOURCE_CANDIDATE_LIMIT]:
+        if await _collection_has_chunks(f'file-{candidate.id}', candidate.id):
+            sources.append((f'file-{candidate.id}', candidate.id))
+
+    return sources or None
+
+
+async def _collection_has_chunks(collection_name: str, file_id: str) -> bool:
+    """Whether a collection holds vectors for this file.
+
+    `query` returns ids without embeddings, so this is the cheap existence probe;
+    reading the vectors themselves costs the full payload.
+    """
+    try:
+        if not await ASYNC_VECTOR_DB_CLIENT.has_collection(collection_name=collection_name):
+            return False
+        stored = await ASYNC_VECTOR_DB_CLIENT.query(collection_name=collection_name, filter={'file_id': file_id})
+    except Exception:
+        log.debug(f'could not inspect collection {collection_name}', exc_info=True)
+        return False
+    return bool(stored and stored.ids and stored.ids[0])
 
 
 @router.post('/process/file')
@@ -2146,6 +2247,10 @@ async def process_file(
                         file.id, {'status': 'processing', 'progress': None}, db=db
                     )
 
+                    reuse_from = None
+                    if RAG_DEDUP_DUPLICATE_FILES:
+                        reuse_from = await resolve_embedding_reuse_source(file.id, hash, collection_name)
+
                     result = await run_in_threadpool(
                         save_docs_to_vector_db,
                         request,
@@ -2160,6 +2265,7 @@ async def process_file(
                         add=(True if form_data.collection_name else False),
                         user=user,
                         on_progress=report_progress,
+                        reuse_from=reuse_from,
                     )
                     log.info(f'added {len(docs)} items to collection {collection_name}')
 

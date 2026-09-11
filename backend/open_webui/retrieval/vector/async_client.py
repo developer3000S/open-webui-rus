@@ -137,6 +137,13 @@ class AsyncVectorDBClient:
     async def get(self, collection_name: str) -> Optional[GetResult]:
         return await asyncio.to_thread(self._sync.get, collection_name)
 
+    async def get_with_embeddings(
+        self,
+        collection_name: str,
+        filter: Optional[Dict] = None,
+    ) -> Optional[List[VectorItem]]:
+        return await asyncio.to_thread(self._sync.get_with_embeddings, collection_name, filter)
+
     async def delete(
         self,
         collection_name: str,
