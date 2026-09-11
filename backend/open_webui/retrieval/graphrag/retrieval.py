@@ -17,7 +17,14 @@ import os
 
 log = logging.getLogger(__name__)
 
-MIN_SCORE = 0.35  # e5-large cosine floor for a useful entity hit (measured)
+# Guards against degenerate hits (truncated or empty vectors), NOT against
+# irrelevance. Measured on the deployed e5-large index: an on-topic query tops
+# out at 0.936 while "melting point of tungsten" against the same medical
+# entities still scores 0.874-0.894, so absolute cosine barely discriminates and
+# no threshold here separates them. What keeps an off-topic query out of the
+# graph branch is the relation-cue router in orchestrator.py plus the gid filter
+# (only graphs of files in the searched KB are candidates) -- both upstream.
+MIN_SCORE = 0.35
 AUGMENT_TIMEOUT_S = int(os.getenv('GRAPHRAG_QUERY_TIMEOUT', '20'))
 
 
