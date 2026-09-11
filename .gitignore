@@ -314,3 +314,7 @@ cypress/screenshots
 
 # Upstream research clone (https://github.com/ImprintLab/Medical-Graph-RAG), not part of the app
 /Medical-Graph-RAG/
+
+# Qwen Code session state (tmp, worktrees, agent transcripts), never project source
+.qwen/
+

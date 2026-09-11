@@ -1,1 +1,0 @@
-check /tmp/dockerrun.log and bg_03ddb266 status for docker-run.sh completion (container running on port 8083)
