@@ -1684,6 +1684,14 @@ async def get_sources_from_items(
             extracted_collections.extend(collection_names)
 
         if query_result:
+            # Relation-shaped questions get the knowledge graph appended to the
+            # (already reranked) vector result; no-op unless enabled + routed +
+            # the KB is graph-indexed. Lazy import keeps the module optional.
+            from open_webui.retrieval.graphrag.retrieval import maybe_augment_with_graph
+
+            await maybe_augment_with_graph(
+                request, item, query_result, queries, embedding_function, user
+            )
             if 'data' in item:
                 del item['data']
             query_results.append({**query_result, 'file': item})

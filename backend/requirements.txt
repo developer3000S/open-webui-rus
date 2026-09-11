@@ -157,3 +157,8 @@ opentelemetry-instrumentation-logging==0.63b1
 opentelemetry-instrumentation-httpx==0.63b1
 opentelemetry-instrumentation-aiohttp-client==0.63b1
 opentelemetry-instrumentation-system-metrics==0.63b1
+
+# Knowledge graph layer (open_webui/retrieval/graphrag): Neo4j driver only.
+# 5.x matches the community server the layer is tested against; it needs no
+# APOC/GDS plugins because vector search uses Neo4j's native index.
+neo4j==5.26.0

@@ -2212,6 +2212,16 @@ async def process_file(
                                 data={'filename': file.filename},
                             )
 
+                            if file.id:
+                                from open_webui.retrieval.graphrag.worker import (
+                                    schedule_graph_index,
+                                )
+
+                                # Detached: graph extraction runs one LLM call per
+                                # chunk and may take hours on CPU; the upload must
+                                # report completion without waiting for it.
+                                schedule_graph_index(request.app, file.id, user.id)
+
                             return {
                                 'status': True,
                                 'collection_name': collection_name,
@@ -3263,6 +3273,12 @@ async def process_files_batch(
             for file_update, file_result in zip(file_updates, file_results):
                 await Files.update_file_by_id(id=file_result.file_id, form_data=file_update, db=db)
                 file_result.status = 'completed'
+
+            from open_webui.retrieval.graphrag.worker import schedule_graph_index
+
+            for file_result in file_results:
+                if file_result.status == 'completed':
+                    schedule_graph_index(request.app, file_result.file_id, user.id)
 
         except Exception as e:
             log.error(f'process_files_batch: Error saving documents to vector DB: {str(e)}')

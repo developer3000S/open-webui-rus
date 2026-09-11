@@ -1105,6 +1105,45 @@ CHUNK_MIN_SIZE_TARGET = int(os.getenv('RAG_CHUNK_MIN_SIZE_TARGET', os.getenv('CH
 
 CHUNK_OVERLAP = int(os.getenv('RAG_CHUNK_OVERLAP', os.getenv('CHUNK_OVERLAP', '100')))
 
+####################################
+# Knowledge Graph (GraphRAG)
+####################################
+# Graph layer on top of the RAG pipeline: an LLM extracts entities/relations
+# from the already-vectorized chunks into Neo4j, and a lexical query router
+# decides per question whether the graph context is worth adding. Everything is
+# off until enabled; NEO4J_URI/USER/PASSWORD (declared above) provide the
+# connection and must point at a reachable Neo4j 5.11+ (native vector index,
+# no APOC/GDS required).
+GRAPHRAG_ENABLED = os.getenv('GRAPHRAG_ENABLED', 'False').lower() == 'true'
+# auto: the relation-cue router decides per query. always: graph context is
+# attached to every knowledge query (cost: one vector search + traversal).
+# never: indexing continues, retrieval ignores the graph.
+GRAPHRAG_MODE = os.getenv('GRAPHRAG_MODE', 'auto')
+# The extraction model runs once per chunk on indexing; on CPU this is the
+# dominant cost, so pick the fastest local model that answers valid JSON.
+# Measured on this host (CPU-only, one 700-token medical chunk, temp 0):
+#   qwen3:1.7b -> 298 s/chunk, 1.54 tok/s, caught the CONTRAINDICATED_IN edge
+#   qwen3:4b   -> 316 s/chunk, 0.82 tok/s, emitted no relations at all
+# 4b is slower *and* sparser here, so 1.7b is the default. Either way a 100-
+# chunk document costs ~8 h, which is why GRAPHRAG_ENABLED ships false: the
+# graph layer only pays for itself with a GPU-resident or API-backed model.
+GRAPHRAG_LLM_MODEL = os.getenv('GRAPHRAG_LLM_MODEL', 'qwen3:1.7b')
+# qwen3-family models spend the whole token budget on hidden reasoning and
+# return empty content unless thinking is turned off. None = don't send the
+# field (models that reject it); set false for qwen3, true to keep reasoning.
+GRAPHRAG_LLM_THINKING = (
+    None if os.getenv('GRAPHRAG_LLM_THINKING', '') == '' else os.getenv('GRAPHRAG_LLM_THINKING').lower() == 'true'
+)
+# Characters of a chunk handed to the extractor (chunk_size 460 e5-tokens is
+# well under this; the limit only guards against oversized manual content).
+GRAPHRAG_CHUNK_CHAR_LIMIT = int(os.getenv('GRAPHRAG_CHUNK_CHAR_LIMIT', '3000'))
+GRAPHRAG_CONCURRENCY = int(os.getenv('GRAPHRAG_CONCURRENCY', '1'))
+GRAPHRAG_MAX_RETRIES = int(os.getenv('GRAPHRAG_MAX_RETRIES', '3'))
+GRAPHRAG_EXTRACT_TIMEOUT = int(os.getenv('GRAPHRAG_EXTRACT_TIMEOUT', '1800'))
+GRAPHRAG_TOP_ENTITIES = int(os.getenv('GRAPHRAG_TOP_ENTITIES', '6'))
+GRAPHRAG_TRAVERSAL_DEPTH = int(os.getenv('GRAPHRAG_TRAVERSAL_DEPTH', '2'))
+GRAPHRAG_NEIGHBOR_LIMIT = int(os.getenv('GRAPHRAG_NEIGHBOR_LIMIT', '12'))
+
 DEFAULT_RAG_TEMPLATE = """### Task:
 Respond to the user query using the provided context, incorporating inline citations in the format [id] **only when the <source> tag includes an explicit id attribute** (e.g., <source id="1">).
 

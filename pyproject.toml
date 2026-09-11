@@ -102,6 +102,10 @@ dependencies = [
     "onnxruntime==1.27.0",
     "faster-whisper==1.2.1",
 
+    # Knowledge graph layer (backend/open_webui/retrieval/graphrag): Neo4j
+    # driver only, no APOC/GDS. 5.x matches the tested community server.
+    "neo4j==5.26.0",
+
     "black==26.5.1",
     "youtube-transcript-api==1.2.4",
     "pytube==15.0.0",

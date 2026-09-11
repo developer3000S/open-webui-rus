@@ -1023,6 +1023,18 @@ async def delete_file_by_id(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=ERROR_MESSAGES.DEFAULT('Error deleting files'),
                 )
+            # The graph subgraph is keyed by file id (gid), so it must go with
+            # the file. Best-effort: a down Neo4j cannot block the deletion.
+            try:
+                from open_webui.retrieval.graphrag.neo4j_client import get_graph
+                from open_webui.retrieval.graphrag.worker import get_job
+
+                job = get_job(id)
+                if job and not job.done:
+                    job.cancel.set()
+                await asyncio.to_thread(get_graph().delete_gid, id)
+            except Exception as e:
+                log.debug(f'graphrag cleanup for {id}: {e}')
             await publish_event(
                 request,
                 EVENTS.FILE_DELETED,
