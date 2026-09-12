@@ -2045,6 +2045,10 @@ async def process_file(
             else:
                 await _validate_collection_access([collection_name], user, access_type='write')
 
+            # Whether `docs` below arrive already chunked; re-splitting them would
+            # shift boundaries and break the text-identity contract of embedding reuse.
+            chunks_pre_split = False
+
             if form_data.content:
                 # Update the content in the file
                 # Usage: /files/{file_id}/data/content/update, /files/ (audio file upload pipeline)
@@ -2086,6 +2090,7 @@ async def process_file(
                         )
                         for idx, id in enumerate(result.ids[0])
                     ]
+                    chunks_pre_split = True
                 else:
                     docs = [
                         Document(
@@ -2263,6 +2268,13 @@ async def process_file(
                             'hash': hash,
                         },
                         add=(True if form_data.collection_name else False),
+                        # The chunks read back from `file-{id}` are already at their
+                        # final boundaries. Splitting them a second time rewrites each
+                        # one (header/whitespace normalization), which both shifts the
+                        # text away from the vectors computed from it and makes every
+                        # chunk miss in the reuse source, so the KB pass re-embeds the
+                        # whole document from scratch.
+                        split=(not chunks_pre_split),
                         user=user,
                         on_progress=report_progress,
                         reuse_from=reuse_from,
