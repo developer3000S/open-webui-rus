@@ -315,6 +315,10 @@ cypress/screenshots
 # Upstream research clone (https://github.com/ImprintLab/Medical-Graph-RAG), not part of the app
 /Medical-Graph-RAG/
 
+# Flutter SDK: unpacked distribution ships its own .git (embedded repo) and split tarballs
+/flutter/
+/flutter_linux_*.tar.xz*
+
 # Qwen Code session state (tmp, worktrees, agent transcripts), never project source
 .qwen/
 
