@@ -132,6 +132,132 @@ class ShellExportSafetyTest(unittest.TestCase):
         self.assertEqual(result.stdout, nasty)
 
 
+class EnvNameAliasesMatchConfigPyTest(unittest.TestCase):
+    """ENV_NAME_ALIASES is the handshake between "name in .env" and "name config.py reads".
+
+    config.py builds DEFAULT_CONFIG from constants like ENABLE_WEB_SEARCH, while
+    env_name_for() derives WEB_SEARCH_ENABLE from the dotted key. The derived name is
+    what the deployment actually writes, so without the alias the two never match and
+    a stale SQLite row wins silently. Regenerating the mapping from config.py catches
+    drift: a key fixed upstream, or a new one added, either needs an entry here or
+    must already resolve by the derived name.
+    """
+
+    CONFIG_PY = Path(__file__).resolve().parents[1] / 'config.py'
+
+    @classmethod
+    def _expected_aliases(cls):
+        import ast
+
+        tree = ast.parse(cls.CONFIG_PY.read_text(encoding='utf-8'))
+
+        def getenv_names(node):
+            names = []
+            for n in ast.walk(node):
+                if not isinstance(n, ast.Call):
+                    continue
+                func = n.func
+                qualified = f'{func.value.id}.{func.attr}' if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name) else None
+                if qualified in ('os.getenv', 'os.environ.get') and n.args:
+                    arg = n.args[0]
+                    if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+                        names.append(arg.value)
+            return names
+
+        # var -> env names read by any assignment to it, including the try/except blocks
+        var_env: dict[str, list[str]] = {}
+        # var -> other var, for `VAR = other` passthroughs whose real getenv sits elsewhere
+        var_alias: dict[str, str] = {}
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Assign):
+                continue
+            names = getenv_names(node.value)
+            if names:
+                for target in node.targets:
+                    if isinstance(target, ast.Name):
+                        var_env[target.id] = names
+            elif isinstance(node.value, ast.Name):
+                for target in node.targets:
+                    if isinstance(target, ast.Name):
+                        var_alias[target.id] = node.value.id
+
+        def resolved_env_names(var, seen=None):
+            seen = seen or set()
+            if var in seen:
+                return []
+            seen.add(var)
+            if var in var_env:
+                return var_env[var]
+            if var in var_alias:
+                return resolved_env_names(var_alias[var], seen)
+            return []
+
+        literal = None
+        for node in tree.body:
+            if isinstance(node, ast.Assign) and any(
+                isinstance(t, ast.Name) and t.id == 'DEFAULT_CONFIG' for t in node.targets
+            ):
+                literal = node.value
+                break
+        assert literal is not None, 'DEFAULT_CONFIG literal not found in config.py'
+
+        entries = [
+            (k.value, v.id)
+            for k, v in zip(literal.keys, literal.values)
+            if isinstance(k, ast.Constant) and isinstance(k.value, str) and isinstance(v, ast.Name)
+        ]
+
+        expected = {}
+        for key, var in entries:
+            derived = key.upper().replace('.', '_')
+            names = resolved_env_names(var)
+            if not names:
+                continue
+            distinct = list(dict.fromkeys(names))
+            if derived in distinct:
+                continue
+            # A default composed of several env vars has no single owner: the key stays
+            # derived-name-bound, and setting any one of them in .env would otherwise
+            # disable persistence for the whole group.
+            if len(distinct) == 1:
+                expected[derived] = distinct[0]
+        return expected
+
+    def test_table_matches_the_mapping_config_py_implies(self):
+        expected = self._expected_aliases()
+        actual = dict(env_config.ENV_NAME_ALIASES)
+        self.assertEqual(actual, expected, msg='\n'.join(self._diff(expected, actual)))
+
+    def test_aliases_are_not_self_mappings(self):
+        """An entry pointing at its own derived name is dead weight and a sign of a
+        copy-paste error in the table."""
+        for derived, actual in env_config.ENV_NAME_ALIASES.items():
+            self.assertNotEqual(derived, actual)
+
+    def test_aliases_cover_the_legacy_flag_names_this_deploy_uses(self):
+        """The specific names .env pins here; if the alias for one disappears, the
+        deployment's setting quietly stops applying again."""
+        for name in ('ENABLE_WEB_SEARCH', 'DEFAULT_MODEL_METADATA', 'ENABLE_CODE_INTERPRETER', 'ENABLE_NOTES', 'ENABLE_CALENDAR', 'ENABLE_AUTOMATIONS', 'ENABLE_CHANNELS'):
+            self.assertIn(name, env_config.ENV_NAME_ALIASES.values(), name)
+
+    @staticmethod
+    def _diff(expected, actual):
+        only_expected = set(expected) - set(actual)
+        only_actual = set(actual) - set(expected)
+        changed = {k for k in expected.keys() & actual.keys() if expected[k] != actual[k]}
+        lines = []
+        if only_expected:
+            lines.append(f'missing from ENV_NAME_ALIASES ({len(only_expected)}):')
+            lines.extend(f'  {k} -> {expected[k]}' for k in sorted(only_expected))
+        if only_actual:
+            lines.append(f'no longer implied by config.py ({len(only_actual)}):')
+            lines.extend(f'  {k} -> {actual[k]}' for k in sorted(only_actual))
+        if changed:
+            lines.append(f'changed mapping ({len(changed)}):')
+            lines.extend(f'  {k}: expected {expected[k]}, have {actual[k]}' for k in sorted(changed))
+        return lines or ['ENV_NAME_ALIASES is out of sync with config.py']
+
+
 class ParityWithDotenvTest(unittest.TestCase):
     """env.py loads the file through python-dotenv while start.sh uses this parser.
 
